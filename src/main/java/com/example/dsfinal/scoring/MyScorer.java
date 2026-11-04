@@ -1,90 +1,150 @@
 package com.example.dsfinal.scoring;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
+import com.example.dsfinal.crawler.HtmlKeywordExtractor.Link;
+import com.example.dsfinal.crawler.HtmlKeywordExtractor.PageContent;
 import com.example.dsfinal.model.SearchResult;
 
 /**
- * ===== 在這裡寫你自己的計分算法 =====
+ * Goo狗 評分公式（改良版）
  *
- * application.properties 裡 search.scorer=my 時會用這個 class（預設就是 my）。
- * 改完存檔，devtools 會自動重新啟動，重新搜尋就能看到新的排序。
+ *   Score = Σₖ clamp( Nₖ × Wₖ ÷ T′ × 100 , −C , C ) + Q + L
  *
- * 可以用的資料：
- *   query          使用者輸入的關鍵字
- *   r.title()      標題
- *   r.snippet()    摘要
- *   r.url()        網址
- *   r.sources()    從哪些來源拿到的，例如 ["google", "brave"]
- *   r.rank()       在原本搜尋來源裡的名次（1 = 第一名）
- * 工具：TextUtil.count(文字, 關鍵字) → 出現次數
- *      extractor.countKeyword(網址, 關鍵字) → 關鍵字在「整個網頁內容」出現幾次
+ *   T′ = max(T, T_min)
+ *   Q  = (1/n) × Σᵢ ( 2·tᵢ + bᵢ ) + a
+ *   L  = L_max × 相關連結數 ÷ 全部連結數
+ *
+ * - Nₖ、Wₖ：身份字典裡第 k 個關鍵字的出現次數（最長匹配）和權重；NOT 排除詞的權重為 not-weight
+ * - T：內文總字數（中文以字計、英文以單字計）
+ * - n：查詢詞數（OR 群組算一個）；tᵢ、bᵢ：第 i 個查詢詞出現在標題、內文時為 1
+ * - a：查詢有 2 個以上的詞且全部出現時為 1
+ * - L：網頁裡連結文字或網址含有身份關鍵字（權重 > 0）的比例
+ *
+ * 參數都在 application.properties 的 scoring.* 調整。
  */
 @Component("my")
 public class MyScorer implements ResultScorer {
 
-    /** 自訂關鍵字和權重：出現一次就加上對應的分數（自己改、自己加） */
-    private static final Map<String, Double> KEYWORD_WEIGHTS = new LinkedHashMap<>();
-    static {
-        // KEYWORD_WEIGHTS.put("教學", 2.0);
-        // KEYWORD_WEIGHTS.put("廣告", -5.0);
-    }
-
-    /** 每個關鍵字在網頁內文出現一次加幾分（網頁很長，所以權重低一點） */
-    private static final double PAGE_WEIGHT = 0.2;
-    /** 網頁內文最多加幾分，避免超長網頁分數爆掉 */
-    private static final double PAGE_MAX = 5.0;
-
     private final HtmlKeywordExtractor extractor;
+    private final int tMin;
+    private final double c;
+    private final double lMax;
+    private final double notWeight;
 
-    public MyScorer(HtmlKeywordExtractor extractor) {
+    public MyScorer(HtmlKeywordExtractor extractor,
+                    @Value("${scoring.t-min:200}") int tMin,
+                    @Value("${scoring.c:3}") double c,
+                    @Value("${scoring.l-max:2}") double lMax,
+                    @Value("${scoring.not-weight:-3}") double notWeight) {
         this.extractor = extractor;
+        this.tMin = tMin;
+        this.c = c;
+        this.lMax = lMax;
+        this.notWeight = notWeight;
     }
 
     @Override
-    public double score(String query, SearchResult r) {
-        double score = 0;
-
-        // 1. 使用者的關鍵字：標題 ×3、摘要 ×1
-        score += TextUtil.count(r.title(), query) * 3.0;
-        score += TextUtil.count(r.snippet(), query) * 1.0;
-
-        // 2. 自訂關鍵字權重
-        for (Map.Entry<String, Double> e : KEYWORD_WEIGHTS.entrySet()) {
-            String text = r.title() + " " + r.snippet();
-            score += TextUtil.count(text, e.getKey()) * e.getValue();
-        }
-
-        // 3. 原本搜尋引擎的名次：第 1 名 +1、第 10 名 +0.1
-        score += 1.0 / r.rank();
-
-        // 4. 多個來源都找到同一個網址，代表比較可信
-        score += (r.sources().size() - 1) * 2.0;
-
-        // 5. 讀取網頁 HTML，看關鍵字在整個網頁裡出現幾次
-        Map<String, Integer> pageCounts = extractor.countKeywords(r.url(), allKeywords(query));
-        double pageScore = pageCounts.get(query) * PAGE_WEIGHT;
-        for (Map.Entry<String, Double> e : KEYWORD_WEIGHTS.entrySet()) {
-            pageScore += pageCounts.getOrDefault(e.getKey(), 0) * PAGE_WEIGHT * e.getValue();
-        }
-        score += Math.min(pageScore, PAGE_MAX);
-
-        return score;
-    }
-
-    /** 使用者的關鍵字 + 自訂關鍵字 */
-    private static java.util.List<String> allKeywords(String query) {
-        java.util.List<String> list = new java.util.ArrayList<>();
-        list.add(query);
-        for (String k : KEYWORD_WEIGHTS.keySet()) {
-            if (!list.contains(k)) {
-                list.add(k);
+    public boolean accept(ScoringContext ctx, SearchResult r) {
+        // Exact：內文（或標題、摘要）沒有完整詞組就排除
+        String all = (r.title() + " " + r.snippet() + " " + body(r)).toLowerCase(Locale.ROOT);
+        for (String phrase : ctx.query().exact()) {
+            if (!all.contains(phrase.toLowerCase(Locale.ROOT))) {
+                return false;
             }
         }
-        return list;
+        return true;
+    }
+
+    @Override
+    public double score(ScoringContext ctx, SearchResult r) {
+        String body = body(r);
+        return density(ctx, body) + queryScore(ctx, r.title(), body) + linkScore(ctx, r.url());
+    }
+
+    /** 密度分數：Σₖ clamp( Nₖ × Wₖ ÷ T′ × 100 , −C , C ) */
+    double density(ScoringContext ctx, String body) {
+        Map<String, Double> weights = weights(ctx);
+        Map<String, Integer> counts = KeywordMatcher.count(body, weights.keySet());
+        double tPrime = Math.max(KeywordMatcher.textLength(body), tMin);
+
+        double sum = 0;
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            double w = weights.get(e.getKey());
+            if (w == 0) {
+                continue;   // 排除詞：只用來避免誤算，不加不扣
+            }
+            sum += clamp(e.getValue() * w / tPrime * 100, -c, c);
+        }
+        return sum;
+    }
+
+    /** 查詢分數 Q = (1/n) × Σᵢ ( 2·tᵢ + bᵢ ) + a */
+    double queryScore(ScoringContext ctx, String title, String body) {
+        List<List<String>> groups = ctx.query().groups();
+        int n = groups.size();
+        if (n == 0) {
+            return 0;
+        }
+        double sum = 0;
+        boolean allPresent = true;
+        for (List<String> g : groups) {
+            int t = SearchQuery.groupIn(g, title) ? 1 : 0;
+            int b = SearchQuery.groupIn(g, body) ? 1 : 0;
+            sum += 2 * t + b;
+            if (t == 0 && b == 0) {
+                allPresent = false;
+            }
+        }
+        int a = (n >= 2 && allPresent) ? 1 : 0;
+        return sum / n + a;
+    }
+
+    /** 連結分數 L = L_max × 相關連結 ÷ 全部連結（只看這一頁上的連結，不另外下載子網頁） */
+    double linkScore(ScoringContext ctx, String url) {
+        List<Link> links = extractor.fetch(url).links();
+        if (links.isEmpty()) {
+            return 0;
+        }
+        int related = 0;
+        for (Link link : links) {
+            String text = (link.text() + " " + link.href()).toLowerCase(Locale.ROOT);
+            for (Map.Entry<String, Double> e : ctx.profile().keywords().entrySet()) {
+                if (e.getValue() > 0 && text.contains(e.getKey().toLowerCase(Locale.ROOT))) {
+                    related++;
+                    break;
+                }
+            }
+        }
+        return lMax * related / links.size();
+    }
+
+    /** 這次查詢用的字典：身份關鍵字 + 排除詞（權重 0）+ NOT 詞（負權重） */
+    private Map<String, Double> weights(ScoringContext ctx) {
+        Map<String, Double> w = new LinkedHashMap<>(ctx.profile().keywords());
+        for (String s : ctx.profile().stopwords()) {
+            w.putIfAbsent(s, 0.0);
+        }
+        for (String s : ctx.query().not()) {
+            w.put(s, notWeight);
+        }
+        return w;
+    }
+
+    /** 內文：下載得到網頁就用網頁文字，下載失敗就退回用摘要 */
+    private String body(SearchResult r) {
+        PageContent page = extractor.fetch(r.url());
+        return page.text().isEmpty() ? r.snippet() : page.text();
+    }
+
+    private static double clamp(double x, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, x));
     }
 }

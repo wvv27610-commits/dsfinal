@@ -73,3 +73,30 @@ button:hover { filter: brightness(1.08); }
 .result .url { color: #15803d; font-size: .82rem; margin: 2px 0 6px; word-break: break-all; }
 .result p { margin: 0; color: var(--text); line-height: 1.5; }
 .result .score { color: var(--muted); font-size: .8rem; margin-top: 6px; }
+
+/* ===== 身份切換 ===== */
+.profiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 4px 0;
+}
+.profile-chip {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 16px;
+  font-size: .9rem;
+}
+.profile-chip:hover { border-color: var(--accent); filter: none; }
+.profile-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.profile-desc {
+  color: var(--muted);
+  font-size: .85rem;
+  margin: 8px 4px 0;
+  min-height: 1.2em;
+}

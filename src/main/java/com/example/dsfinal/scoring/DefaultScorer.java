@@ -9,7 +9,8 @@ import com.example.dsfinal.model.SearchResult;
 public class DefaultScorer implements ResultScorer {
 
     @Override
-    public double score(String query, SearchResult r) {
+    public double score(ScoringContext ctx, SearchResult r) {
+        String query = ctx.query().raw().trim();
         return TextUtil.count(r.title(), query) * 3 + TextUtil.count(r.snippet(), query);
     }
 }
