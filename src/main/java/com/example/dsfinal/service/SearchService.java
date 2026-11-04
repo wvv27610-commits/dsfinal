@@ -78,9 +78,10 @@ public class SearchService {
 
         // 3. 算分數  4. 排序
         List<SearchResult> results = new ArrayList<>();
-        for (SearchResult r : merged.values()) {
-            results.add(r.withScore(scorer.score(q, r)));
-        }
+        // 計分時可能要下載網頁，所以用 parallelStream 同時處理多筆，比較快
+        merged.values().parallelStream()
+                .map(r -> r.withScore(scorer.score(q, r)))
+                .forEachOrdered(results::add);
         results.sort((a, b) -> Double.compare(b.score(), a.score()));
 
         return new SearchResponse(results, warnings);

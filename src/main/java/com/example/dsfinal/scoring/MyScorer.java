@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.example.dsfinal.crawler.HtmlKeywordExtractor;
 import com.example.dsfinal.model.SearchResult;
 
 /**
@@ -21,6 +22,7 @@ import com.example.dsfinal.model.SearchResult;
  *   r.sources()    從哪些來源拿到的，例如 ["google", "brave"]
  *   r.rank()       在原本搜尋來源裡的名次（1 = 第一名）
  * 工具：TextUtil.count(文字, 關鍵字) → 出現次數
+ *      extractor.countKeyword(網址, 關鍵字) → 關鍵字在「整個網頁內容」出現幾次
  */
 @Component("my")
 public class MyScorer implements ResultScorer {
@@ -30,6 +32,17 @@ public class MyScorer implements ResultScorer {
     static {
         // KEYWORD_WEIGHTS.put("教學", 2.0);
         // KEYWORD_WEIGHTS.put("廣告", -5.0);
+    }
+
+    /** 每個關鍵字在網頁內文出現一次加幾分（網頁很長，所以權重低一點） */
+    private static final double PAGE_WEIGHT = 0.2;
+    /** 網頁內文最多加幾分，避免超長網頁分數爆掉 */
+    private static final double PAGE_MAX = 5.0;
+
+    private final HtmlKeywordExtractor extractor;
+
+    public MyScorer(HtmlKeywordExtractor extractor) {
+        this.extractor = extractor;
     }
 
     @Override
@@ -52,6 +65,26 @@ public class MyScorer implements ResultScorer {
         // 4. 多個來源都找到同一個網址，代表比較可信
         score += (r.sources().size() - 1) * 2.0;
 
+        // 5. 讀取網頁 HTML，看關鍵字在整個網頁裡出現幾次
+        Map<String, Integer> pageCounts = extractor.countKeywords(r.url(), allKeywords(query));
+        double pageScore = pageCounts.get(query) * PAGE_WEIGHT;
+        for (Map.Entry<String, Double> e : KEYWORD_WEIGHTS.entrySet()) {
+            pageScore += pageCounts.getOrDefault(e.getKey(), 0) * PAGE_WEIGHT * e.getValue();
+        }
+        score += Math.min(pageScore, PAGE_MAX);
+
         return score;
+    }
+
+    /** 使用者的關鍵字 + 自訂關鍵字 */
+    private static java.util.List<String> allKeywords(String query) {
+        java.util.List<String> list = new java.util.ArrayList<>();
+        list.add(query);
+        for (String k : KEYWORD_WEIGHTS.keySet()) {
+            if (!list.contains(k)) {
+                list.add(k);
+            }
+        }
+        return list;
     }
 }
