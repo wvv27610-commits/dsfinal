@@ -7,13 +7,17 @@ import com.example.dsfinal.model.SearchResult;
  *
  * 要用哪一個算法，在 application.properties 設定 search.scorer=名字，
  * 名字就是 class 上 @Component("名字") 括號裡的字。
- * 自己的算法直接改 MyScorer 就好。
  */
 public interface ResultScorer {
 
     /**
-     * @param query  使用者輸入的關鍵字（已去掉前後空白）
+     * @param ctx    這次的查詢（已拆好搜尋語法）和使用者選的身份
      * @param result 一筆搜尋結果，可以用 title() / url() / snippet() / sources() / rank()
      */
-    double score(String query, SearchResult result);
+    double score(ScoringContext ctx, SearchResult result);
+
+    /** 這筆結果要不要保留（例如 Exact 詞組沒出現就排除）。預設全部保留。 */
+    default boolean accept(ScoringContext ctx, SearchResult result) {
+        return true;
+    }
 }
