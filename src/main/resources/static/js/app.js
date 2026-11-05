@@ -9,10 +9,19 @@ const profileDescEl = document.getElementById('profile-desc');
 let profiles = [];
 let currentProfile = new URLSearchParams(location.search).get('profile');
 
+const MAX_TITLE_LENGTH = 100;
+const MAX_URL_LENGTH = 120;
+const MAX_SNIPPET_LENGTH = 200;
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
+}
+
+function truncateText(value, maxLength) {
+  const text = String(value ?? '');
+  return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 }
 
 function updateUrl() {
@@ -78,9 +87,9 @@ async function doSearch(q) {
     if (warnings.length) statusEl.textContent += `（部分來源失敗：${warnings.join('；')}）`;
     resultsEl.innerHTML = data.map(r => `
       <div class="result">
-        <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.title)}</a>
-        <div class="url">${escapeHtml(r.url)}</div>
-        <p>${escapeHtml(r.snippet)}</p>
+        <a href="${escapeHtml(r.url)}" title="${escapeHtml(r.title)}" target="_blank" rel="noopener">${escapeHtml(truncateText(r.title, MAX_TITLE_LENGTH))}</a>
+        <div class="url" title="${escapeHtml(r.url)}">${escapeHtml(truncateText(r.url, MAX_URL_LENGTH))}</div>
+        <p>${escapeHtml(truncateText(r.snippet, MAX_SNIPPET_LENGTH))}</p>
         <div class="score">score: ${Number(r.score).toFixed(2)} · 來源: ${escapeHtml(r.sources.join(', '))} · 原名次: ${r.rank}</div>
       </div>`).join('');
   } catch (err) {
