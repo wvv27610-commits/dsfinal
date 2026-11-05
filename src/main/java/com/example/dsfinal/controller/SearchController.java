@@ -14,7 +14,10 @@ import com.example.dsfinal.profile.ProfileRegistry;
 import com.example.dsfinal.service.SearchService;
 
 /**
- * GET /api/search?q=關鍵字  →  成功時回傳 {"results": [...], "warnings": [...]}，全部來源都失敗時回傳 {"error": "原因"}
+ * 後端 API：
+ *   GET /api/profiles                      → 所有身份（前端用來產生切換按鈕）
+ *   GET /api/search?q=關鍵字&profile=身份id → {"results": [...], "warnings": [...], "searchedQuery": "..."}
+ *                                            全部來源都失敗時回傳 {"error": "原因"}
  */
 @RestController
 public class SearchController {
@@ -27,20 +30,19 @@ public class SearchController {
         this.profiles = profiles;
     }
 
-    /** 前端用來產生身份切換按鈕 */
     @GetMapping("/api/profiles")
     public List<Profile> profiles() {
         return profiles.all();
     }
 
     @GetMapping("/api/search")
-    public ResponseEntity<?> search(@RequestParam(name = "q", defaultValue = "") String q,
-                                    @RequestParam(name = "profile", required = false) String profile) {
+    public ResponseEntity<?> search(@RequestParam(name = "q", defaultValue = "") String query,
+                                    @RequestParam(name = "profile", required = false) String profileId) {
         try {
-            return ResponseEntity.ok(searchService.search(q, profile));
+            return ResponseEntity.ok(searchService.search(query, profileId));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", String.valueOf(e.getMessage())));
+            Map<String, String> error = Map.of("error", String.valueOf(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(error);
         }
     }
 }

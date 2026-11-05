@@ -24,40 +24,14 @@ public class ProfileRegistry {
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
 
     public ProfileRegistry() throws IOException {
-        String json;
-        try (InputStream in = new ClassPathResource(FILE).getInputStream()) {
-            json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-        Map<String, Object> root = JsonParserFactory.getJsonParser().parseMap(json);
-        for (Object o : (List<?>) root.get("profiles")) {
-            Map<?, ?> m = (Map<?, ?>) o;
-            String id = String.valueOf(m.get("id"));
-
-            Map<String, Double> keywords = new LinkedHashMap<>();
-            Object kw = m.get("keywords");
-            if (kw instanceof Map<?, ?> km) {
-                for (Map.Entry<?, ?> e : km.entrySet()) {
-                    keywords.put(String.valueOf(e.getKey()), ((Number) e.getValue()).doubleValue());
-                }
-            }
-            List<String> stopwords = new ArrayList<>();
-            Object sw = m.get("stopwords");
-            if (sw instanceof List<?> sl) {
-                for (Object s : sl) {
-                    stopwords.add(String.valueOf(s));
-                }
-            }
-            profiles.put(id, new Profile(id, String.valueOf(m.get("name")),
-                    m.get("description") == null ? "" : String.valueOf(m.get("description")),
-                    keywords, stopwords, text(m.get("queryPrefix")), text(m.get("querySuffix"))));
+        Map<String, Object> root = JsonParserFactory.getJsonParser().parseMap(readFile());
+        for (Object item : (List<?>) root.get("profiles")) {
+            Profile profile = toProfile((Map<?, ?>) item);
+            profiles.put(profile.id(), profile);
         }
         if (profiles.isEmpty()) {
             throw new IllegalStateException(FILE + " 裡至少要有一個身份");
         }
-    }
-
-    private static String text(Object o) {
-        return o == null ? "" : String.valueOf(o).trim();
     }
 
     /** 所有身份（照 profiles.json 的順序） */
@@ -71,5 +45,50 @@ public class ProfileRegistry {
             return profiles.get(id);
         }
         return profiles.values().iterator().next();
+    }
+
+    // ===== 讀取 JSON =====
+
+    private static String readFile() throws IOException {
+        try (InputStream in = new ClassPathResource(FILE).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static Profile toProfile(Map<?, ?> json) {
+        return new Profile(
+                text(json.get("id")),
+                text(json.get("name")),
+                text(json.get("description")),
+                readKeywords(json.get("keywords")),
+                readStopwords(json.get("stopwords")),
+                text(json.get("queryPrefix")),
+                text(json.get("querySuffix")));
+    }
+
+    /** "keywords": { "柴犬": 3, ... } → Map<詞, 權重> */
+    private static Map<String, Double> readKeywords(Object json) {
+        Map<String, Double> keywords = new LinkedHashMap<>();
+        if (json instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                keywords.put(String.valueOf(entry.getKey()), ((Number) entry.getValue()).doubleValue());
+            }
+        }
+        return keywords;
+    }
+
+    /** "stopwords": [ "熱狗", ... ] → List<詞> */
+    private static List<String> readStopwords(Object json) {
+        List<String> stopwords = new ArrayList<>();
+        if (json instanceof List<?> list) {
+            for (Object word : list) {
+                stopwords.add(String.valueOf(word));
+            }
+        }
+        return stopwords;
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 }

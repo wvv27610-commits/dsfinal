@@ -24,14 +24,16 @@ public class TavilySearchProvider implements SearchProvider {
 
     private static final String URL = "https://api.tavily.com/search";
 
+    private static final int MAX_COUNT = 20;   // Tavily 一次最多 20 筆
+
     private final RestClient http = RestClient.create();
     private final String apiKey;
-    private final int count;
+    private final int resultCount;
 
     public TavilySearchProvider(@Value("${tavily.key:}") String apiKey,
-                                @Value("${search.results-per-provider:10}") int count) {
+                                @Value("${search.results-per-provider:10}") int resultCount) {
         this.apiKey = apiKey;
-        this.count = Math.min(count, 20);   // Tavily 一次最多 20 筆
+        this.resultCount = Math.min(resultCount, MAX_COUNT);
     }
 
     @Override
@@ -48,7 +50,7 @@ public class TavilySearchProvider implements SearchProvider {
     public List<SearchResult> search(String query) {
         Map<String, Object> request = Map.of(
                 "query", query,
-                "max_results", count,
+                "max_results", resultCount,
                 "search_depth", "basic",     // basic 每次搜尋花 1 點額度，advanced 花 2 點
                 "include_answer", false);
 
@@ -65,15 +67,19 @@ public class TavilySearchProvider implements SearchProvider {
             int rank = 1;
             for (Object o : items) {
                 if (o instanceof Map<?, ?> item && item.get("url") != null) {
-                    results.add(SearchResult.of(text(item.get("title")), String.valueOf(item.get("url")),
-                            text(item.get("content")), name(), rank++));
+                    results.add(SearchResult.of(
+                            text(item.get("title")),
+                            String.valueOf(item.get("url")),
+                            text(item.get("content")),
+                            name(),
+                            rank++));
                 }
             }
         }
         return results;
     }
 
-    private static String text(Object o) {
-        return o == null ? "" : String.valueOf(o);
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 }

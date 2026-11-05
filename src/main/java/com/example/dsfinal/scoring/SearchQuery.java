@@ -14,44 +14,48 @@ import java.util.regex.Pattern;
  *   "黃金獵犬 掉毛"      → Exact：內文必須有完整詞組，沒有就排除
  *   -貓                  → NOT：當作這次查詢的負權重關鍵字
  *
+ * @param raw    原始輸入
  * @param groups 查詢詞群組（n = groups.size()；一個 OR 群組算一個詞）
  * @param exact  必須完整出現的詞組
  * @param not    排除詞
  */
 public record SearchQuery(String raw, List<List<String>> groups, List<String> exact, List<String> not) {
 
+    /** 一個 token：可加 - 的 "引號詞組"，或一段不含空白的字 */
     private static final Pattern TOKEN = Pattern.compile("-?\"[^\"]+\"|\\S+");
 
     public static SearchQuery parse(String raw) {
         List<List<String>> groups = new ArrayList<>();
         List<String> exact = new ArrayList<>();
         List<String> not = new ArrayList<>();
-        boolean orNext = false;
+        boolean joinWithPrevious = false;   // 上一個 token 是 OR
 
-        Matcher m = TOKEN.matcher(raw == null ? "" : raw.trim());
-        while (m.find()) {
-            String tok = m.group();
-            if (tok.equals("OR") || tok.equals("|")) {
-                orNext = !groups.isEmpty();
+        Matcher tokens = TOKEN.matcher(raw == null ? "" : raw.trim());
+        while (tokens.find()) {
+            String token = tokens.group();
+
+            if (token.equals("OR") || token.equals("|")) {
+                joinWithPrevious = !groups.isEmpty();
                 continue;
             }
-            if (tok.equals("AND")) {
+            if (token.equals("AND")) {
                 continue;   // 空白本來就是 AND
             }
-            if (tok.startsWith("-") && tok.length() > 1) {
-                not.add(unquote(tok.substring(1)));
+            if (token.startsWith("-") && token.length() > 1) {
+                not.add(unquote(token.substring(1)));
                 continue;
             }
-            String word = unquote(tok);
+
+            String word = unquote(token);
             if (word.isEmpty()) {
                 continue;
             }
-            if (tok.startsWith("\"")) {
+            if (token.startsWith("\"")) {
                 exact.add(word);
             }
-            if (orNext) {
+            if (joinWithPrevious) {
                 groups.get(groups.size() - 1).add(word);
-                orNext = false;
+                joinWithPrevious = false;
             } else {
                 groups.add(new ArrayList<>(List.of(word)));
             }
@@ -59,24 +63,21 @@ public record SearchQuery(String raw, List<List<String>> groups, List<String> ex
         return new SearchQuery(raw, groups, exact, not);
     }
 
-    /** 標題裡有沒有任一查詢詞（同分時用來比較） */
+    /** text 裡有沒有任一個查詢詞（同分時用來比較標題） */
     public boolean anyIn(String text) {
-        String t = text == null ? "" : text.toLowerCase(Locale.ROOT);
-        for (List<String> g : groups) {
-            for (String w : g) {
-                if (t.contains(w.toLowerCase(Locale.ROOT))) {
-                    return true;
-                }
+        for (List<String> group : groups) {
+            if (groupIn(group, text)) {
+                return true;
             }
         }
         return false;
     }
 
-    /** 群組裡任一詞出現在 text 裡就算成立 */
+    /** 群組裡任一詞出現在 text 裡就算成立（不分大小寫） */
     public static boolean groupIn(List<String> group, String text) {
-        String t = text == null ? "" : text.toLowerCase(Locale.ROOT);
-        for (String w : group) {
-            if (t.contains(w.toLowerCase(Locale.ROOT))) {
+        String lowerText = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        for (String word : group) {
+            if (lowerText.contains(word.toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }

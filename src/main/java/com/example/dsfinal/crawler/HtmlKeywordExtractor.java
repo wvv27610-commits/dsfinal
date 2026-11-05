@@ -1,8 +1,6 @@
 package com.example.dsfinal.crawler;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,12 +10,10 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
 
-import com.example.dsfinal.scoring.TextUtil;
-
 /**
- * 讀取網頁 HTML：取出標題、內文文字、所有連結，並可統計關鍵字出現次數。
+ * 下載網頁 HTML，取出標題、內文文字和所有連結。
  *
- * - 用 Jsoup 下載並解析 HTML，內文只取「看得到的文字」（去掉 script、style）。
+ * - 內文只取「看得到的文字」（去掉 script、style）。
  * - 同一個網址只會下載一次（存在 cache 裡）。
  * - 網頁打不開或逾時，就當作內容是空的，不會讓整個搜尋失敗。
  */
@@ -41,26 +37,9 @@ public class HtmlKeywordExtractor {
 
     private final Map<String, PageContent> cache = new ConcurrentHashMap<>();
 
-    /** 下載網頁並取出標題、純文字內容和連結 */
+    /** 取得網頁內容（第一次會下載，之後從 cache 拿） */
     public PageContent fetch(String url) {
         return cache.computeIfAbsent(url, this::download);
-    }
-
-    /** 統計每個關鍵字在網頁（標題 + 內文）出現幾次 */
-    public Map<String, Integer> countKeywords(String url, Collection<String> keywords) {
-        PageContent page = fetch(url);
-        String all = page.title() + " " + page.text();
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (String k : keywords) {
-            counts.put(k, TextUtil.count(all, k));
-        }
-        return counts;
-    }
-
-    /** 統計單一關鍵字在網頁出現幾次 */
-    public int countKeyword(String url, String keyword) {
-        PageContent page = fetch(url);
-        return TextUtil.count(page.title() + " " + page.text(), keyword);
     }
 
     private PageContent download(String url) {
@@ -73,21 +52,26 @@ public class HtmlKeywordExtractor {
                     .get();
             doc.select("script, style, noscript").remove();
 
-            List<Link> links = new ArrayList<>();
-            for (Element a : doc.select("a[href]")) {
-                if (links.size() >= MAX_LINKS) {
-                    break;
-                }
-                String href = a.absUrl("href");
-                if (href.startsWith("http")) {
-                    links.add(new Link(a.text(), href));
-                }
-            }
             String text = doc.body() == null ? "" : doc.body().text();
-            return new PageContent(doc.title(), text, links);
+            return new PageContent(doc.title(), text, extractLinks(doc));
         } catch (Exception e) {
             // 打不開（403、逾時、不是 HTML 等）→ 當作空內容
             return PageContent.EMPTY;
         }
+    }
+
+    /** 網頁裡所有 http(s) 連結，最多 MAX_LINKS 個 */
+    private static List<Link> extractLinks(Document doc) {
+        List<Link> links = new ArrayList<>();
+        for (Element a : doc.select("a[href]")) {
+            if (links.size() >= MAX_LINKS) {
+                break;
+            }
+            String href = a.absUrl("href");
+            if (href.startsWith("http")) {
+                links.add(new Link(a.text(), href));
+            }
+        }
+        return links;
     }
 }
