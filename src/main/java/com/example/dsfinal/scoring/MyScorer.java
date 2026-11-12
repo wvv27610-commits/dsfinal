@@ -52,6 +52,16 @@ public class MyScorer implements ResultScorer {
         this.notWeight = notWeight;
     }
 
+    @Override
+    public String displayName() {
+        return "Goo狗 評分公式";
+    }
+
+    @Override
+    public String description() {
+        return "密度分數 + 查詢分數 + 連結分數，依身份關鍵字權重計算";
+    }
+
     /** Exact：標題、摘要、內文都沒有完整詞組就排除 */
     @Override
     public boolean accept(ScoringContext ctx, SearchResult r) {

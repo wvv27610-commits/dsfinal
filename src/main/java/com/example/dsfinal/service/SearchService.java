@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
+import com.example.dsfinal.model.ScorerInfo;
 import com.example.dsfinal.model.SearchResponse;
 import com.example.dsfinal.model.SearchResult;
 import com.example.dsfinal.profile.Profile;
@@ -25,14 +26,15 @@ import com.example.dsfinal.scoring.SearchQuery;
  *   1. 組出實際要搜尋的字串（加上強制前後綴）
  *   2. 同時向所有已啟用的 SearchProvider 搜尋
  *   3. 同一個網址出現在多個來源就合併成一筆
- *   4. 依使用者選的身份計分（Exact 不符合的排除）
- *   5. 排序：分數高的先 → 標題有查詢詞的先 → 原始名次好的先
+ *   4. 用使用者選的計分算法、依身份計分（Exact 不符合的排除）
+ *   5. 排序：分數高的先 → 原始名次好的先
  */
 @Service
 public class SearchService {
 
     private final List<SearchProvider> providers;
-    private final ResultScorer scorer;
+    private final Map<String, ResultScorer> scorers;
+    private final String defaultScorerId;
     private final ProfileRegistry profiles;
     private final HtmlKeywordExtractor pageFetcher;
     private final String globalPrefix;
@@ -51,15 +53,38 @@ public class SearchService {
         this.globalPrefix = globalPrefix.trim();
         this.globalSuffix = globalSuffix.trim();
 
-        this.scorer = scorers.get(scorerName);
-        if (this.scorer == null) {
+        if (!scorers.containsKey(scorerName)) {
             throw new IllegalStateException("search.scorer=" + scorerName + " 找不到，可用的有：" + scorers.keySet());
         }
+        this.scorers = new LinkedHashMap<>(scorers);
+        this.defaultScorerId = scorerName;
     }
 
-    public SearchResponse search(String query, String profileId) {
+    /** 所有計分算法（預設的排第一個），給前端產生選單 */
+    public List<ScorerInfo> scorers() {
+        List<ScorerInfo> list = new ArrayList<>();
+        for (Map.Entry<String, ResultScorer> entry : scorers.entrySet()) {
+            String id = entry.getKey();
+            ResultScorer s = entry.getValue();
+            ScorerInfo info = new ScorerInfo(id, s.displayName(), s.description(), id.equals(defaultScorerId));
+            if (info.isDefault()) {
+                list.add(0, info);
+            } else {
+                list.add(info);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * @param scorerId 計分算法的 id（@Component 的名字）；沒給或找不到就用 search.scorer 設定的預設算法
+     */
+    public SearchResponse search(String query, String profileId, String scorerId) {
+        String usedScorerId = (scorerId != null && scorers.containsKey(scorerId)) ? scorerId : defaultScorerId;
+        ResultScorer scorer = scorers.get(usedScorerId);
+
         if (query == null || query.isBlank()) {
-            return new SearchResponse(List.of(), List.of(), "");
+            return new SearchResponse(List.of(), List.of(), "", usedScorerId);
         }
         String userQuery = query.trim();
         Profile profile = profiles.get(profileId);
@@ -74,10 +99,10 @@ public class SearchService {
         List<SearchResult> merged = searchAllProviders(searchedQuery, warnings);
 
         // 4 + 5. 計分、排序
-        List<SearchResult> results = scoreAndFilter(merged, ctx);
-        results.sort(rankingOrder(parsedQuery));
+        List<SearchResult> results = scoreAndFilter(merged, ctx, scorer);
+        results.sort(rankingOrder());
 
-        return new SearchResponse(results, warnings, searchedQuery);
+        return new SearchResponse(results, warnings, searchedQuery, usedScorerId);
     }
 
     // ===== 1. 組查詢字串 =====
@@ -160,7 +185,7 @@ public class SearchService {
 
     // ===== 4 + 5. 計分與排序 =====
 
-    private List<SearchResult> scoreAndFilter(List<SearchResult> results, ScoringContext ctx) {
+    private List<SearchResult> scoreAndFilter(List<SearchResult> results, ScoringContext ctx, ResultScorer scorer) {
         // 計分要用到網頁內容：先「同時」把所有網頁下載好，下面的迴圈就不用一個一個等
         results.parallelStream().forEach(r -> pageFetcher.fetch(r.url()));
 
@@ -175,10 +200,10 @@ public class SearchService {
         return scored;
     }
 
-    private static Comparator<SearchResult> rankingOrder(SearchQuery query) {
+    /** 分數高的先；同分就照原始名次 */
+    private static Comparator<SearchResult> rankingOrder() {
         Comparator<SearchResult> byScore = Comparator.comparingDouble(SearchResult::score).reversed();
-        Comparator<SearchResult> byTitleHit = Comparator.comparing((SearchResult r) -> query.anyIn(r.title())).reversed();
         Comparator<SearchResult> byOriginalRank = Comparator.comparingInt(SearchResult::rank);
-        return byScore.thenComparing(byTitleHit).thenComparing(byOriginalRank);
+        return byScore.thenComparing(byOriginalRank);
     }
 }

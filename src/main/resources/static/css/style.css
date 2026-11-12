@@ -100,3 +100,26 @@ button:hover { filter: brightness(1.08); }
   margin: 8px 4px 0;
   min-height: 1.2em;
 }
+
+/* ===== 計分算法切換 ===== */
+.scorer-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 4px 0;
+  font-size: .85rem;
+  color: var(--muted);
+}
+.scorer-picker select {
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.scorer-picker select:hover,
+.scorer-picker select:focus { border-color: var(--accent); outline: none; }
+.scorer-desc { flex-basis: 100%; }

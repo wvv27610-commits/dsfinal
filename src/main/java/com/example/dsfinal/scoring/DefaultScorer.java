@@ -13,4 +13,14 @@ public class DefaultScorer implements ResultScorer {
         String query = ctx.query().raw().trim();
         return TextUtil.count(r.title(), query) * 3 + TextUtil.count(r.snippet(), query);
     }
+
+    @Override
+    public String displayName() {
+        return "簡單計分";
+    }
+
+    @Override
+    public String description() {
+        return "標題出現查詢詞一次 +3、摘要出現一次 +1（速度快，不看身份）";
+    }
 }

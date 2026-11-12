@@ -149,10 +149,26 @@ src/main/resources/
 - 原本名次越前面加越多（第 1 名 +1、第 10 名 +0.1）
 - 多個來源都找到同一個網址 → 每多一個來源 +2
 
-**切換算法**：在 `application.properties` 改這一行
+**切換算法**：網頁搜尋框下方的「計分算法」選單可以直接切換（會記在網址 `?scorer=id`）。
+預設選哪一個，在 `application.properties` 改這一行：
 
 ```properties
 search.scorer=my        # my = MyScorer，default = DefaultScorer
+```
+
+**新增自己的算法**：在 `scoring` 套件新增一個 class 實作 `ResultScorer`，加上 `@Component("名字")`，
+選單就會自動出現它。可以覆寫 `displayName()`、`description()` 設定選單上顯示的名稱和說明：
+
+```java
+@Component("title-only")
+public class TitleOnlyScorer implements ResultScorer {
+    @Override
+    public double score(ScoringContext ctx, SearchResult r) {
+        return TextUtil.count(r.title(), ctx.query().raw().trim());
+    }
+    @Override public String displayName() { return "只看標題"; }
+    @Override public String description() { return "只計算查詢詞在標題出現的次數"; }
+}
 ```
 
 ---

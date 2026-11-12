@@ -10,11 +10,16 @@ const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const profilesEl = document.getElementById('profiles');
 const profileDescEl = document.getElementById('profile-desc');
+const scorerSelect = document.getElementById('scorer');
+const scorerDescEl = document.getElementById('scorer-desc');
 
 // ===== 狀態 =====
 // 身份清單由後端 /api/profiles 提供（內容在 profiles.json），這裡不用寫死
 let profiles = [];
 let currentProfileId = new URLSearchParams(location.search).get('profile');
+// 計分算法清單由後端 /api/scorers 提供（所有 @Component 的 ResultScorer），預設的排第一個
+let scorers = [];
+let currentScorerId = new URLSearchParams(location.search).get('scorer');
 
 // ===== 小工具 =====
 function escapeHtml(value) {
@@ -32,12 +37,17 @@ function currentProfile() {
   return profiles.find(p => p.id === currentProfileId);
 }
 
+function currentScorer() {
+  return scorers.find(s => s.id === currentScorerId);
+}
+
 /** 把目前的關鍵字和身份寫進網址，重新整理後還能保留 */
 function updateUrl() {
   const params = new URLSearchParams();
   const q = input.value.trim();
   if (q) params.set('q', q);
   if (currentProfileId) params.set('profile', currentProfileId);
+  if (currentScorerId) params.set('scorer', currentScorerId);
   history.replaceState(null, '', '?' + params.toString());
 }
 
@@ -83,11 +93,46 @@ function onProfileClick(event) {
   if (q) doSearch(q);
 }
 
+// ===== 計分算法切換 =====
+async function loadScorers() {
+  try {
+    const res = await fetch('/api/scorers');
+    scorers = await res.json();
+  } catch {
+    scorers = [];
+  }
+  // 網址沒指定或指定了不存在的算法 → 用預設（第一個）
+  if (!currentScorer()) {
+    currentScorerId = scorers.length ? scorers[0].id : null;
+  }
+  renderScorers();
+}
+
+function renderScorers() {
+  scorerSelect.innerHTML = scorers.map(s => `
+    <option value="${escapeHtml(s.id)}"${s.id === currentScorerId ? ' selected' : ''}>
+      ${escapeHtml(s.name)}${s.isDefault ? '（預設）' : ''}
+    </option>`).join('');
+  const scorer = currentScorer();
+  scorerDescEl.textContent = scorer ? scorer.description : '';
+}
+
+function onScorerChange() {
+  currentScorerId = scorerSelect.value;
+  renderScorers();
+  updateUrl();
+
+  // 已經有關鍵字的話，用新的算法重新搜尋
+  const q = input.value.trim();
+  if (q) doSearch(q);
+}
+
 // ===== 搜尋 =====
 async function doSearch(q) {
   document.body.classList.add('has-results');
   const profile = currentProfile();
-  statusEl.textContent = `以「${profile ? profile.name : '預設'}」身份搜尋中…（需要讀取網頁，請稍候）`;
+  const scorer = currentScorer();
+  statusEl.textContent = `以「${profile ? profile.name : '預設'}」身份、「${scorer ? scorer.name : '預設'}」算法搜尋中…（需要讀取網頁，請稍候）`;
   resultsEl.innerHTML = '';
 
   try {
@@ -102,6 +147,7 @@ async function doSearch(q) {
 async function fetchSearch(q) {
   let url = '/api/search?q=' + encodeURIComponent(q);
   if (currentProfileId) url += '&profile=' + encodeURIComponent(currentProfileId);
+  if (currentScorerId) url += '&scorer=' + encodeURIComponent(currentScorerId);
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -149,9 +195,10 @@ function onSubmit(event) {
 // ===== 啟動 =====
 form.addEventListener('submit', onSubmit);
 profilesEl.addEventListener('click', onProfileClick);
+scorerSelect.addEventListener('change', onScorerChange);
 
-// 先載入身份，網址有 ?q=xxx 時再自動搜尋
-loadProfiles().then(() => {
+// 先載入身份和計分算法，網址有 ?q=xxx 時再自動搜尋
+Promise.all([loadProfiles(), loadScorers()]).then(() => {
   const initialQuery = new URLSearchParams(location.search).get('q');
   if (initialQuery) {
     input.value = initialQuery;
