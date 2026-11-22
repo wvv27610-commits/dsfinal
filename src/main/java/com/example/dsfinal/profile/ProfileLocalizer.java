@@ -15,7 +15,7 @@ import java.util.Map;
  *   - keywords：預設語言的關鍵字 + 翻譯的關鍵字（同一個詞以翻譯的權重為準）。
  *     兩種語言的詞都保留，因為網頁常常中英混寫
  *   - stopwords：兩邊合併
- *   - scorer：只看預設語言（計分公式跟著身份走，不跟著語言走）
+ *   - group：只看預設語言（分組的翻譯寫在翻譯檔的 groups 區塊）
  */
 public final class ProfileLocalizer {
 
@@ -31,8 +31,8 @@ public final class ProfileLocalizer {
         if (translation == null) {
             return new Profile(base.id(), base.name(), base.description(),
                     base.keywords(), base.stopwords(),
-                    base.queryPrefix(), base.querySuffix(),
-                    base.scorer(), language, false);
+                    base.queryPrefix(), base.querySuffix(), base.group(),
+                    language, false);
         }
 
         Map<String, Double> keywords = new LinkedHashMap<>(base.keywords());
@@ -53,7 +53,7 @@ public final class ProfileLocalizer {
                 stopwords,
                 text(translation.get("queryPrefix")),
                 text(translation.get("querySuffix")),
-                base.scorer(),
+                base.group(),
                 language,
                 true);
     }

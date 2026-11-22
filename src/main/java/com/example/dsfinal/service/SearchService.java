@@ -6,11 +6,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
+import com.example.dsfinal.crawler.LinkTreeBuilder;
 import com.example.dsfinal.language.Language;
 import com.example.dsfinal.language.LanguageRegistry;
 import com.example.dsfinal.model.ScorerInfo;
@@ -28,8 +30,7 @@ import com.example.dsfinal.scoring.SearchQuery;
  *   1. 組出實際要搜尋的字串（加上強制前後綴；身份的前後綴和關鍵字會換成使用者選的語言）
  *   2. 同時向所有已啟用的 SearchProvider 搜尋（帶上語言參數）
  *   3. 同一個網址出現在多個來源就合併成一筆
- *   4. 計分（Exact 不符合的排除）。計分算法的選擇順序：
- *        使用者指定的 → 身份在 profiles.json 設定的 scorer → application.properties 的 search.scorer
+ *   4. 用使用者選的計分算法、依身份計分（Exact 不符合的排除）
  *   5. 排序：分數高的先 → 原始名次好的先
  */
 @Service
@@ -41,6 +42,7 @@ public class SearchService {
     private final ProfileRegistry profiles;
     private final LanguageRegistry languages;
     private final HtmlKeywordExtractor pageFetcher;
+    private final LinkTreeBuilder linkTrees;
     private final String globalPrefix;
     private final String globalSuffix;
 
@@ -49,6 +51,7 @@ public class SearchService {
                          ProfileRegistry profiles,
                          LanguageRegistry languages,
                          HtmlKeywordExtractor pageFetcher,
+                         LinkTreeBuilder linkTrees,
                          @Value("${search.scorer:my}") String scorerName,
                          @Value("${search.query-prefix:}") String globalPrefix,
                          @Value("${search.query-suffix:}") String globalSuffix) {
@@ -56,6 +59,7 @@ public class SearchService {
         this.profiles = profiles;
         this.languages = languages;
         this.pageFetcher = pageFetcher;
+        this.linkTrees = linkTrees;
         this.globalPrefix = globalPrefix.trim();
         this.globalSuffix = globalSuffix.trim();
 
@@ -89,13 +93,13 @@ public class SearchService {
 
     /**
      * @param profileId    身份 id；沒給或找不到就用 profiles.json 的第一個
-     * @param scorerId     計分算法的 id（@Component 的名字）；沒給或找不到就用身份設定的算法，再沒有就用 search.scorer
+     * @param scorerId     計分算法的 id（@Component 的名字）；沒給或找不到就用 search.scorer 設定的預設算法
      * @param languageCode 語言代碼（例如 zh-TW、en）；沒給或找不到就用 languages.json 的預設語言
      */
     public SearchResponse search(String query, String profileId, String scorerId, String languageCode) {
         Language language = languages.get(languageCode);
         Profile profile = profiles.get(profileId, language.code());
-        String usedScorerId = chooseScorer(scorerId, profile);
+        String usedScorerId = (scorerId != null && scorers.containsKey(scorerId)) ? scorerId : defaultScorerId;
         ResultScorer scorer = scorers.get(usedScorerId);
 
         if (query == null || query.isBlank()) {
@@ -119,16 +123,6 @@ public class SearchService {
         return new SearchResponse(results, warnings, searchedQuery, usedScorerId, profile.id(), language.code());
     }
 
-    /** 使用者指定的 → 身份設定的 → 全站預設 */
-    private String chooseScorer(String requested, Profile profile) {
-        if (requested != null && scorers.containsKey(requested)) {
-            return requested;
-        }
-        if (!profile.scorer().isBlank() && scorers.containsKey(profile.scorer())) {
-            return profile.scorer();
-        }
-        return defaultScorerId;
-    }
 
     // ===== 1. 組查詢字串 =====
 
@@ -200,7 +194,7 @@ public class SearchService {
         }
         String longerSnippet = b.snippet().length() > a.snippet().length() ? b.snippet() : a.snippet();
         int bestRank = Math.min(a.rank(), b.rank());
-        return new SearchResult(a.title(), a.url(), longerSnippet, sources, bestRank, 0);
+        return new SearchResult(a.title(), a.url(), longerSnippet, sources, bestRank, 0, null);
     }
 
     /** 比對用：忽略 http/https、www、結尾的 / */
@@ -211,18 +205,17 @@ public class SearchService {
     // ===== 4 + 5. 計分與排序 =====
 
     private List<SearchResult> scoreAndFilter(List<SearchResult> results, ScoringContext ctx, ResultScorer scorer) {
-        // 計分要用到網頁內容：先「同時」把所有網頁下載好，下面的迴圈就不用一個一個等
+        // 計分要用到網頁內容：先「同時」把所有網頁下載好
         results.parallelStream().forEach(r -> pageFetcher.fetch(r.url()));
 
-        List<SearchResult> scored = new ArrayList<>();
-        for (SearchResult r : results) {
-            if (!scorer.accept(ctx, r)) {
-                continue;   // 例如 Exact 詞組沒出現 → 排除
-            }
-            double score = scorer.score(ctx, r);
-            scored.add(r.withScore(score));
-        }
-        return scored;
+        // 每筆結果也「同時」計分（建連結樹要下載子網頁，一筆一筆等會很慢）。
+        // 例如 Exact 詞組沒出現 → accept 回傳 false → 排除。
+        // 計分算法有建連結樹的話，把樹附在結果上給前端顯示。
+        return results.parallelStream()
+                .filter(r -> scorer.accept(ctx, r))
+                .map(r -> r.withScore(scorer.score(ctx, r))
+                           .withLinkTree(linkTrees.cached(r.url(), ctx.profile())))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     /** 分數高的先；同分就照原始名次 */

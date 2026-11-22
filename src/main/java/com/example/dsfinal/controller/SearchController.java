@@ -13,6 +13,7 @@ import com.example.dsfinal.language.Language;
 import com.example.dsfinal.language.LanguageRegistry;
 import com.example.dsfinal.model.ScorerInfo;
 import com.example.dsfinal.profile.Profile;
+import com.example.dsfinal.profile.ProfileGroup;
 import com.example.dsfinal.profile.ProfileRegistry;
 import com.example.dsfinal.service.SearchService;
 
@@ -20,6 +21,7 @@ import com.example.dsfinal.service.SearchService;
  * 後端 API：
  *   GET /api/languages                     → 所有語言和預設語言（前端用來產生語言選單）
  *   GET /api/profiles?lang=語言            → 所有身份，名稱和關鍵字換成該語言（前端用來產生切換按鈕）
+ *   GET /api/groups?lang=語言              → 身份的分組（前端用來把按鈕分區顯示）
  *   GET /api/scorers                       → 所有計分算法（前端用來產生選單，預設的排第一個）
  *   GET /api/search?q=關鍵字&profile=身份id&scorer=算法id&lang=語言
  *                                          → {"results": [...], "warnings": [...], "searchedQuery": "...",
@@ -51,6 +53,11 @@ public class SearchController {
     public List<Profile> profiles(@RequestParam(name = "lang", required = false) String languageCode) {
         Language language = languages.get(languageCode);
         return profiles.all(language.code());
+    }
+
+    @GetMapping("/api/groups")
+    public List<ProfileGroup> groups(@RequestParam(name = "lang", required = false) String languageCode) {
+        return profiles.groups(languageCode);
     }
 
     @GetMapping("/api/scorers")

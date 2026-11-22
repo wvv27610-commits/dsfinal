@@ -1,11 +1,18 @@
 {
+  "groups": [
+    { "id": "daily", "name": "日常照顧" },
+    { "id": "health", "name": "健康醫療" },
+    { "id": "adopt-travel", "name": "領養與外出" },
+    { "id": "knowledge", "name": "知識與其他" }
+  ],
   "profiles": [
     {
       "id": "pet-owner",
       "name": "寵物主人",
+      "group": "daily",
       "description": "照顧狗狗的日常：犬種、飲食、健康、訓練",
       "queryPrefix": "",
-      "querySuffix": "狗",
+      "querySuffix": "狗 飼養",
       "keywords": {
         "柴犬": 3, "柯基": 3, "黃金獵犬": 3, "拉布拉多": 3, "貴賓犬": 3,
         "吉娃娃": 3, "哈士奇": 3, "米克斯": 3, "臘腸犬": 3, "博美": 3,
@@ -19,6 +26,7 @@
     {
       "id": "biology",
       "name": "生物知識",
+      "group": "knowledge",
       "description": "從生物學角度認識犬：演化、分類、基因、行為",
       "queryPrefix": "",
       "querySuffix": "狗 生物學",
@@ -33,6 +41,7 @@
     {
       "id": "other",
       "name": "其餘",
+      "group": "knowledge",
       "description": "從任意角度認識狗",
       "queryPrefix": "",
       "querySuffix": "狗",
@@ -52,22 +61,29 @@
     {
       "id": "adoption",
       "name": "寵物領養",
+      "group": "adopt-travel",
       "description": "提供寵物領養相關資訊：領養流程、注意事項、收容所",
       "queryPrefix": "",
-      "querySuffix": "狗",
-      "keywords": {"醫院": 3, "收容所": 3, "領養": 3, "流程": 3, "馴化": 3},
+      "querySuffix": "狗 領養",
+      "keywords": {
+        "領養": 3, "認養": 3, "收容所": 3, "動物之家": 3, "送養": 3, "中途": 3,
+        "領養流程": 2, "領養條件": 2, "結紮": 2, "晶片": 2, "寵物登記": 2, "家訪": 2, "試養": 2, "不棄養": 2,
+        "狗": 1, "狗狗": 1, "犬": 1, "毛孩": 1, "米克斯": 1, "浪浪": 1, "流浪狗": 1, "獸醫": 1,
+        "販售": -2, "出售": -2, "寵物店": -2, "繁殖場": -2, "優惠": -2, "狗仔隊": -2
+      },
       "stopwords": ["熱狗", "犬儒", "狗屁", "走狗"]
           },
     {
       "id": "dog-health",
       "name": "狗狗健康",
+      "group": "health",
       "description": "狗狗常見疾病、症狀與就醫資訊",
       "queryPrefix": "",
-      "querySuffix": "狗",
+      "querySuffix": "狗 症狀",
       "keywords": {
-        "獸醫": 3, "動物醫院": 3, "症狀": 3, "疾病": 3, "皮膚病": 3, "心絲蟲": 3,
-        "狗狗": 2, "狗": 2, "犬": 2, "毛孩": 2, "老犬": 2, "幼犬": 2,
-        "疫苗": 1, "驅蟲": 1, "嘔吐": 1, "腹瀉": 1, "體重": 1, "健檢": 1,
+        "獸醫": 3, "獸醫師": 3, "動物醫院": 3, "症狀": 3, "疾病": 3, "皮膚病": 3, "心絲蟲": 3, "就醫": 3, "診斷": 3,
+        "嘔吐": 2, "腹瀉": 2, "咳嗽": 2, "發燒": 2, "搔癢": 2, "食慾不振": 2, "治療": 2, "用藥": 2, "疫苗": 2,
+        "狗狗": 1, "狗": 1, "犬": 1, "毛孩": 1, "老犬": 1, "幼犬": 1, "驅蟲": 1, "體重": 1, "健檢": 1,
         "優惠": -2, "團購": -2, "貓咪": -2, "狗仔隊": -2
       },
       "stopwords": ["熱狗", "犬儒", "狗屁", "走狗"]
@@ -75,10 +91,10 @@
     {
       "id": "dog-food",
       "name": "飼料選購",
+      "group": "daily",
       "description": "比較飼料成分與營養，業配和導購文章會被扣分",
       "queryPrefix": "",
       "querySuffix": "狗飼料",
-      "scorer": "my",
       "keywords": {
         "成分": 3, "蛋白質": 3, "粗蛋白": 3, "AAFCO": 3, "營養分析": 3, "獸醫": 3,
         "過敏": 2, "低敏": 2, "無穀": 2, "適口性": 2, "便便": 2, "淚痕": 2, "熱量": 2, "鈣磷比": 2,
@@ -91,6 +107,7 @@
     {
       "id": "training",
       "name": "訓練與行為",
+      "group": "daily",
       "description": "狗狗訓練方法、行為問題與社會化",
       "queryPrefix": "",
       "querySuffix": "狗 訓練",
@@ -107,6 +124,7 @@
     {
       "id": "travel",
       "name": "帶狗出遊",
+      "group": "adopt-travel",
       "description": "寵物友善餐廳、景點、住宿與交通規定",
       "queryPrefix": "",
       "querySuffix": "寵物友善 狗",
@@ -122,6 +140,7 @@
     {
       "id": "senior-dog",
       "name": "老犬照護",
+      "group": "health",
       "description": "高齡犬的健康、飲食與生活照護",
       "queryPrefix": "",
       "querySuffix": "老犬",
@@ -137,6 +156,7 @@
     {
       "id": "pet-travel-abroad",
       "name": "寵物出入境",
+      "group": "adopt-travel",
       "description": "帶狗出入台灣：檢疫、晶片、狂犬病抗體與文件",
       "queryPrefix": "",
       "querySuffix": "狗 檢疫",

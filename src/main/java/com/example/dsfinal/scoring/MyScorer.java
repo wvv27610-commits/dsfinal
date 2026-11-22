@@ -9,8 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
-import com.example.dsfinal.crawler.HtmlKeywordExtractor.Link;
 import com.example.dsfinal.crawler.HtmlKeywordExtractor.PageContent;
+import com.example.dsfinal.crawler.LinkTreeBuilder;
 import com.example.dsfinal.model.SearchResult;
 
 /**
@@ -20,7 +20,7 @@ import com.example.dsfinal.model.SearchResult;
  *
  *   D = Σₖ clamp( Nₖ × Wₖ ÷ T′ × 100 , −C , C )      T′ = max(T, T_min)
  *   Q = (1/n) × Σᵢ ( 2·tᵢ + bᵢ ) + a
- *   L = L_max × 相關連結數 ÷ 全部連結數
+ *   L = L_max × （相關連結的 1/d 總和）÷（所有連結的 1/d 總和）
  *
  * 符號說明：
  *   Nₖ、Wₖ  身份字典裡第 k 個關鍵字的出現次數（最長匹配）和權重；NOT 排除詞權重為 not-weight
@@ -28,6 +28,7 @@ import com.example.dsfinal.model.SearchResult;
  *   n       查詢詞數（OR 群組算一個）
  *   tᵢ、bᵢ  第 i 個查詢詞出現在標題、內文時為 1
  *   a       查詢有 2 個以上的詞且全部出現時為 1
+ *   d       連結在連結樹裡的層數（LinkTreeBuilder 建的樹，最多 2 層）
  *
  * 參數在 application.properties 的 scoring.* 調整。
  */
@@ -35,17 +36,20 @@ import com.example.dsfinal.model.SearchResult;
 public class MyScorer implements ResultScorer {
 
     private final HtmlKeywordExtractor extractor;
+    private final LinkTreeBuilder linkTrees;
     private final int minTextLength;      // T_min
     private final double maxPerKeyword;   // C
     private final double maxLinkScore;    // L_max
     private final double notWeight;
 
     public MyScorer(HtmlKeywordExtractor extractor,
+                    LinkTreeBuilder linkTrees,
                     @Value("${scoring.t-min:200}") int minTextLength,
                     @Value("${scoring.c:3}") double maxPerKeyword,
                     @Value("${scoring.l-max:2}") double maxLinkScore,
                     @Value("${scoring.not-weight:-3}") double notWeight) {
         this.extractor = extractor;
+        this.linkTrees = linkTrees;
         this.minTextLength = minTextLength;
         this.maxPerKeyword = maxPerKeyword;
         this.maxLinkScore = maxLinkScore;
@@ -139,30 +143,13 @@ public class MyScorer implements ResultScorer {
 
     // ===== L：連結分數 =====
 
-    /** L = L_max × 相關連結 ÷ 全部連結（只看這一頁的連結，不另外下載子網頁） */
+    /**
+     * L = L_max × （相關連結的 1/d 總和）÷（所有連結的 1/d 總和）
+     * 連結樹由 LinkTreeBuilder 建立：BFS 展開同網站連結，最多 2 層；
+     * 連結文字或網址含身份關鍵字（正權重）就算相關連結。
+     */
     double linkScore(ScoringContext ctx, String url) {
-        List<Link> links = extractor.fetch(url).links();
-        if (links.isEmpty()) {
-            return 0;
-        }
-        int related = 0;
-        for (Link link : links) {
-            if (isRelated(link, ctx)) {
-                related++;
-            }
-        }
-        return maxLinkScore * related / links.size();
-    }
-
-    /** 連結文字或網址含有任一個正權重的身份關鍵字 */
-    private static boolean isRelated(Link link, ScoringContext ctx) {
-        String text = lower(link.text() + " " + link.href());
-        for (Map.Entry<String, Double> keyword : ctx.profile().keywords().entrySet()) {
-            if (keyword.getValue() > 0 && text.contains(lower(keyword.getKey()))) {
-                return true;
-            }
-        }
-        return false;
+        return maxLinkScore * linkTrees.build(url, ctx.profile()).getRelatedRatio();
     }
 
     // ===== 小工具 =====

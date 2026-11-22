@@ -18,6 +18,7 @@
 8. [上傳到 GitHub（GitHub Desktop）](#8-上傳到-githubgithub-desktop)
 9. [常見問題](#9-常見問題)
 10. [多語言與身份](#10-多語言與身份)
+11. [連結樹（連結分數 L）](#11-連結樹連結分數-l)
 
 ---
 
@@ -294,6 +295,7 @@ public class MySearchProvider implements SearchProvider {
    {
      "id": "grooming",
      "name": "美容洗澡",
+     "group": "daily",
      "description": "狗狗洗澡、剪毛、美容店資訊",
      "queryPrefix": "",
      "querySuffix": "狗 美容",
@@ -301,6 +303,9 @@ public class MySearchProvider implements SearchProvider {
      "stopwords": ["熱狗", "犬儒", "狗屁", "走狗"]
    }
    ```
+
+   `group` 是這個身份要放在哪一組，可以用的組別寫在 `profiles.json` 最上面的 `groups`（目前有 `daily` 日常照顧、`health` 健康醫療、`adopt-travel` 領養與外出、`knowledge` 知識與其他）。
+   要新增一組，就在 `groups` 加一筆 `{ "id": "...", "name": "..." }`，並在 `profiles.en.json` 的 `groups` 加上英文組名。沒寫 `group` 的身份會放在最後的「其他」。
 
 2. 在 `profiles.en.json` 加同一個 id 的英文版（只寫要翻譯的欄位）：
 
@@ -314,11 +319,6 @@ public class MySearchProvider implements SearchProvider {
    ```
 
    沒寫英文版也能用，英文介面會在按鈕上標「not translated yet」，並沿用中文的關鍵字和附加字。
-
-### 每個身份用不同的計分公式
-
-在身份裡加一行 `"scorer": "算法id"`（例如 `"scorer": "Weight"`），切換到這個身份時，計分算法選單會自動換成它，選單上標「（此身份預設）」。
-不寫就用 `application.properties` 的 `search.scorer`。使用者手動選的算法還是優先。目前「飼料選購」有設定 `"scorer": "my"` 當範例。
 
 ### 英文關鍵字的比對規則
 
@@ -342,3 +342,40 @@ public class MySearchProvider implements SearchProvider {
 ```
 
 會檢查關鍵字比對規則，以及每個身份都有英文翻譯、英文的搜尋附加字裡沒有中文。
+
+---
+
+## 11. 連結樹（連結分數 L）
+
+「Goo狗 評分公式」會幫每筆結果建一棵**連結樹**，用來算連結分數 L（提案第 2 節第三點）。
+搜尋結果下方點「連結樹」就能展開來看。
+
+**怎麼建樹**（`crawler/LinkTreeBuilder.java`）
+
+1. 根節點是搜尋結果的網頁本身（第 0 層）
+2. 用 **BFS** 一層一層展開：**Queue** 放等著展開的網頁，**HashSet visited** 記錄看過的網址，連回首頁或互相連結也不會重複
+3. 只收**同網站**的網頁連結（圖片、PDF 等檔案跳過）
+4. 第 1 層的網頁會下載，用來找第 2 層；第 2 層只看連結文字，不下載
+5. 連結文字或網址裡有身份的正權重關鍵字，就算「相關連結」
+
+**公式**
+
+```
+L = L_max × （相關連結的 1/d 總和）÷（所有連結的 1/d 總和）
+```
+
+d 是連結在第幾層，第 1 層權重 1、第 2 層權重 1/2。L 一定介於 0 到 L_max。
+
+**樹的節點裡有什麼**（`crawler/LinkNode.java`）：網址、連結文字、層數、有沒有相關、對到哪些關鍵字；有下載的網頁還會記錄每個關鍵字出現幾次。
+
+**調整速度與準確度**（`application.properties`）
+
+| 設定 | 預設 | 意思 |
+|---|---|---|
+| `scoring.tree.max-depth` | 2 | 最多展開幾層 |
+| `scoring.tree.max-links-per-page` | 30 | 每頁最多記錄幾個連結 |
+| `scoring.tree.expand-per-page` | 3 | 每頁最多下載幾個子網頁去找下一層，**搜尋太慢就調小** |
+| `scoring.tree.cache-size` | 256 | 最多記住幾棵樹（LRU 快取，超過就丟掉最久沒用的） |
+
+測試在 `src/test/java/.../crawler/LinkTreeBuilderTest.java`，用一個假的小網站驗證樹的形狀和 L 的手算結果（2.5 ÷ 6.5）。
+

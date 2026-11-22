@@ -1,15 +1,21 @@
 {
+  "groups": {
+    "daily": {"name": "Daily care"},
+    "health": {"name": "Health"},
+    "adopt-travel": {"name": "Adoption & going out"},
+    "knowledge": {"name": "Knowledge & more"}
+  },
   "pet-owner": {
     "name": "Dog owner",
     "description": "Everyday dog care: breeds, food, health and training",
-    "querySuffix": "dog",
+    "querySuffix": "dog care",
     "keywords": {
-      "shiba inu": 3, "corgi": 3, "golden retriever": 3, "labrador": 3, "poodle": 3,
-      "chihuahua": 3, "husky": 3, "mixed breed": 3, "dachshund": 3, "pomeranian": 3,
-      "dog": 2, "puppy": 2, "puppies": 2, "senior dog": 2, "canine": 2,
-      "dog food": 1, "kibble": 1, "walk": 1, "training": 1, "vaccine": 1, "vet": 1,
-      "veterinarian": 1, "spay": 1, "neuter": 1, "grooming": 1, "treat": 1, "adoption": 1, "leash": 1,
-      "cat litter": -2, "kitten": -2, "paparazzi": -2
+      "shiba inu": 3, "corgi": 3, "golden retriever": 3, "labrador": 3, "poodle": 3, "chihuahua": 3,
+      "husky": 3, "mixed breed": 3, "dachshund": 3, "pomeranian": 3, "dog": 2, "puppy": 2,
+      "puppies": 2, "senior dog": 2, "canine": 2, "dog food": 1, "kibble": 1, "walk": 1,
+      "training": 1, "vaccine": 1, "vet": 1, "veterinarian": 1, "spay": 1, "neuter": 1,
+      "grooming": 1, "treat": 1, "adoption": 1, "leash": 1, "cat litter": -2, "kitten": -2,
+      "paparazzi": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -19,9 +25,9 @@
     "querySuffix": "dog biology",
     "keywords": {
       "canidae": 3, "domestic dog": 3, "gray wolf": 3, "grey wolf": 3, "canis": 3, "domestication": 3,
-      "evolution": 2, "gene": 2, "genetic": 2, "genome": 2, "species": 2, "ancestor": 2, "chromosome": 2,
-      "sense of smell": 1, "olfaction": 1, "behavior": 1, "behaviour": 1, "breed": 1, "ecology": 1,
-      "anatomy": 1, "research": 1, "study": 1, "dog": 1, "canine": 1,
+      "evolution": 2, "gene": 2, "genetic": 2, "genome": 2, "species": 2, "ancestor": 2,
+      "chromosome": 2, "sense of smell": 1, "olfaction": 1, "behavior": 1, "behaviour": 1, "breed": 1,
+      "ecology": 1, "anatomy": 1, "research": 1, "study": 1, "dog": 1, "canine": 1,
       "discount": -2, "shopping": -2, "coupon": -2, "group buy": -2, "paparazzi": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
@@ -33,37 +39,39 @@
     "keywords": {
       "canidae": 3, "domestic dog": 3, "gray wolf": 3, "grey wolf": 3, "canis": 3, "domestication": 3,
       "evolution": 2, "gene": 2, "genetic": 2, "species": 2, "ancestor": 2, "chromosome": 2,
-      "shiba inu": 3, "corgi": 3, "golden retriever": 3, "labrador": 3, "poodle": 3,
-      "chihuahua": 3, "husky": 3, "mixed breed": 3, "dachshund": 3, "pomeranian": 3,
-      "dog food": 1, "kibble": 1, "walk": 1, "training": 1, "vaccine": 1, "vet": 1,
-      "spay": 1, "neuter": 1, "grooming": 1, "treat": 1, "adoption": 1, "leash": 1,
-      "behavior": 1, "behaviour": 1, "breed": 1, "research": 1, "dog": 1, "canine": 1,
-      "discount": -2, "shopping": -2, "coupon": -2, "group buy": -2, "paparazzi": -2
+      "shiba inu": 3, "corgi": 3, "golden retriever": 3, "labrador": 3, "poodle": 3, "chihuahua": 3,
+      "husky": 3, "mixed breed": 3, "dachshund": 3, "pomeranian": 3, "dog food": 1, "kibble": 1,
+      "walk": 1, "training": 1, "vaccine": 1, "vet": 1, "spay": 1, "neuter": 1,
+      "grooming": 1, "treat": 1, "adoption": 1, "leash": 1, "behavior": 1, "behaviour": 1,
+      "breed": 1, "research": 1, "dog": 1, "canine": 1, "discount": -2, "shopping": -2,
+      "coupon": -2, "group buy": -2, "paparazzi": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
   "adoption": {
     "name": "Adoption",
     "description": "How to adopt a dog: process, things to know and animal shelters",
-    "querySuffix": "dog",
+    "querySuffix": "dog adoption",
     "keywords": {
-      "animal shelter": 3, "shelter": 3, "adoption": 3, "adopt": 3, "adoption process": 3, "rescue": 3,
-      "foster": 2, "home visit": 2, "application": 1, "microchip": 1, "spay": 1, "neuter": 1, "vet": 1,
-      "for sale": -2, "breeder": -2
+      "adoption": 3, "adopt": 3, "animal shelter": 3, "shelter": 3, "rescue": 3, "rehoming": 3,
+      "foster": 3, "adoption process": 2, "adoption requirement": 2, "spay": 2, "neuter": 2, "microchip": 2,
+      "pet registration": 2, "home visit": 2, "trial adoption": 2, "dog": 1, "puppy": 1, "puppies": 1,
+      "mixed breed": 1, "stray": 1, "stray dog": 1, "vet": 1, "for sale": -2, "breeder": -2,
+      "pet shop": -2, "discount": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
   "dog-health": {
     "name": "Dog health",
     "description": "Common dog diseases, symptoms and when to see a vet",
-    "querySuffix": "dog",
+    "querySuffix": "dog symptoms",
     "keywords": {
-      "veterinarian": 3, "vet": 3, "animal hospital": 3, "symptom": 3, "disease": 3,
-      "skin disease": 3, "heartworm": 3,
-      "dog": 2, "canine": 2, "puppy": 2, "puppies": 2, "senior dog": 2,
-      "vaccine": 1, "deworming": 1, "vomiting": 1, "diarrhea": 1, "diarrhoea": 1, "weight": 1,
-      "checkup": 1, "check-up": 1,
-      "discount": -2, "group buy": -2, "cat": -2, "kitten": -2, "paparazzi": -2
+      "veterinarian": 3, "vet": 3, "animal hospital": 3, "symptom": 3, "disease": 3, "skin disease": 3,
+      "heartworm": 3, "diagnosis": 3, "vomiting": 2, "diarrhea": 2, "diarrhoea": 2, "cough": 2,
+      "fever": 2, "itching": 2, "loss of appetite": 2, "treatment": 2, "medication": 2, "vaccine": 2,
+      "dog": 1, "canine": 1, "puppy": 1, "puppies": 1, "senior dog": 1, "deworming": 1,
+      "weight": 1, "checkup": 1, "check-up": 1, "discount": -2, "group buy": -2, "cat": -2,
+      "kitten": -2, "paparazzi": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -72,13 +80,12 @@
     "description": "Compare ingredients and nutrition; sponsored and affiliate posts score lower",
     "querySuffix": "dog food",
     "keywords": {
-      "ingredient": 3, "protein": 3, "crude protein": 3, "aafco": 3, "guaranteed analysis": 3,
-      "veterinary nutritionist": 3,
-      "allergy": 2, "allergies": 2, "hypoallergenic": 2, "grain-free": 2, "palatability": 2,
-      "stool": 2, "tear stain": 2, "calorie": 2, "calcium": 2, "phosphorus": 2,
-      "kibble": 1, "wet food": 1, "fresh food": 1, "puppy food": 1, "senior dog": 1,
-      "affiliate": -2, "sponsored": -2, "commission": -2, "deal": -2,
-      "coupon": -3, "promo code": -3, "discount code": -3, "limited time": -3, "buy now": -3, "shop now": -3
+      "ingredient": 3, "protein": 3, "crude protein": 3, "aafco": 3, "guaranteed analysis": 3, "veterinary nutritionist": 3,
+      "allergy": 2, "allergies": 2, "hypoallergenic": 2, "grain-free": 2, "palatability": 2, "stool": 2,
+      "tear stain": 2, "calorie": 2, "calcium": 2, "phosphorus": 2, "kibble": 1, "wet food": 1,
+      "fresh food": 1, "puppy food": 1, "senior dog": 1, "affiliate": -2, "sponsored": -2, "commission": -2,
+      "deal": -2, "coupon": -3, "promo code": -3, "discount code": -3, "limited time": -3, "buy now": -3,
+      "shop now": -3
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -87,14 +94,12 @@
     "description": "Training methods, behaviour problems and socialisation",
     "querySuffix": "dog training",
     "keywords": {
-      "positive reinforcement": 3, "reward-based": 3, "socialization": 3, "socialisation": 3,
-      "behavior problem": 3, "behaviour problem": 3, "separation anxiety": 3,
-      "certified trainer": 3, "behaviorist": 3, "behaviourist": 3,
-      "command": 2, "reward": 2, "clicker": 2, "leash pulling": 2, "barking": 2, "biting": 2,
-      "resource guarding": 2, "potty training": 2, "house training": 2, "crate training": 2,
-      "puppy": 1, "patience": 1, "practice": 1, "walk": 1, "play": 1, "leash": 1,
-      "discount": -2, "coupon": -2,
-      "shock collar": -3, "e-collar": -3, "prong collar": -3, "punishment": -3
+      "positive reinforcement": 3, "reward-based": 3, "socialization": 3, "socialisation": 3, "behavior problem": 3, "behaviour problem": 3,
+      "separation anxiety": 3, "certified trainer": 3, "behaviorist": 3, "behaviourist": 3, "command": 2, "reward": 2,
+      "clicker": 2, "leash pulling": 2, "barking": 2, "biting": 2, "resource guarding": 2, "potty training": 2,
+      "house training": 2, "crate training": 2, "puppy": 1, "patience": 1, "practice": 1, "walk": 1,
+      "play": 1, "leash": 1, "discount": -2, "coupon": -2, "shock collar": -3, "e-collar": -3,
+      "prong collar": -3, "punishment": -3
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -103,12 +108,11 @@
     "description": "Dog-friendly restaurants, places to visit, places to stay and transport rules",
     "querySuffix": "dog friendly",
     "keywords": {
-      "dog-friendly": 3, "dog friendly": 3, "pet-friendly": 3, "pet friendly": 3,
-      "dogs allowed": 3, "pet hotel": 3,
-      "stroller": 2, "pet carrier": 2, "leash": 2, "pet taxi": 2, "opening hours": 2,
-      "rule": 2, "minimum charge": 2, "dog menu": 2,
-      "restaurant": 1, "cafe": 1, "café": 1, "attraction": 1, "homestay": 1, "park": 1, "lawn": 1, "trip": 1,
-      "permanently closed": -3, "closed down": -2, "temporarily closed": -2, "cat cafe": -2, "paparazzi": -2
+      "dog-friendly": 3, "dog friendly": 3, "pet-friendly": 3, "pet friendly": 3, "dogs allowed": 3, "pet hotel": 3,
+      "stroller": 2, "pet carrier": 2, "leash": 2, "pet taxi": 2, "opening hours": 2, "rule": 2,
+      "minimum charge": 2, "dog menu": 2, "restaurant": 1, "cafe": 1, "café": 1, "attraction": 1,
+      "homestay": 1, "park": 1, "lawn": 1, "trip": 1, "permanently closed": -3, "closed down": -2,
+      "temporarily closed": -2, "cat cafe": -2, "paparazzi": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -117,12 +121,11 @@
     "description": "Health, diet and daily care for older dogs",
     "querySuffix": "senior dog",
     "keywords": {
-      "senior dog": 3, "elderly dog": 3, "old dog": 3, "aging dog": 3, "geriatric": 3,
-      "cognitive dysfunction": 3, "dementia": 3,
-      "joint": 2, "arthritis": 2, "kidney": 2, "heart disease": 2, "checkup": 2, "cataract": 2,
-      "pressure sore": 2, "hospice": 2, "palliative": 2, "non-slip": 2,
-      "vet": 1, "veterinarian": 1, "diet": 1, "walk": 1, "weight": 1, "supplement": 1,
-      "puppy": -2, "puppies": -2, "discount": -2, "kitten": -2
+      "senior dog": 3, "elderly dog": 3, "old dog": 3, "aging dog": 3, "geriatric": 3, "cognitive dysfunction": 3,
+      "dementia": 3, "joint": 2, "arthritis": 2, "kidney": 2, "heart disease": 2, "checkup": 2,
+      "cataract": 2, "pressure sore": 2, "hospice": 2, "palliative": 2, "non-slip": 2, "vet": 1,
+      "veterinarian": 1, "diet": 1, "walk": 1, "weight": 1, "supplement": 1, "puppy": -2,
+      "puppies": -2, "discount": -2, "kitten": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   },
@@ -131,13 +134,11 @@
     "description": "Bringing a dog into or out of Taiwan: quarantine, microchip, rabies antibody test and paperwork",
     "querySuffix": "dog quarantine Taiwan",
     "keywords": {
-      "aphia": 3, "animal and plant health inspection agency": 3, "quarantine": 3, "import permit": 3,
-      "rabies": 3, "rabies antibody": 3, "titer test": 3, "titre test": 3, "microchip": 3,
-      "pet registration": 3,
-      "health certificate": 2, "airline": 2, "cargo": 2, "entry": 2, "arrival": 2, "departure": 2,
-      "vaccination certificate": 2, "document": 2, "export": 2,
-      "airport": 1, "crate": 1, "vet": 1, "timeline": 1,
-      "discount": -2, "coupon": -2
+      "aphia": 3, "animal and plant health inspection agency": 3, "quarantine": 3, "import permit": 3, "rabies": 3, "rabies antibody": 3,
+      "titer test": 3, "titre test": 3, "microchip": 3, "pet registration": 3, "health certificate": 2, "airline": 2,
+      "cargo": 2, "entry": 2, "arrival": 2, "departure": 2, "vaccination certificate": 2, "document": 2,
+      "export": 2, "airport": 1, "crate": 1, "vet": 1, "timeline": 1, "discount": -2,
+      "coupon": -2
     },
     "stopwords": ["hot dog", "corn dog", "top dog", "dog days", "dog-eat-dog", "sea dog"]
   }
