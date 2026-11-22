@@ -2,6 +2,7 @@ package com.example.dsfinal.provider;
 
 import java.util.List;
 
+import com.example.dsfinal.language.Language;
 import com.example.dsfinal.model.SearchResult;
 
 /**
@@ -27,4 +28,12 @@ public interface SearchProvider {
      * 失敗時直接丟出例外即可，SearchService 會把它變成警告訊息，不會影響其他來源。
      */
     List<SearchResult> search(String query) throws Exception;
+
+    /**
+     * 用指定語言搜尋。搜尋服務有語言參數的話請覆寫這個方法（範例：SerpApiGoogleProvider）；
+     * 沒覆寫就忽略語言，直接呼叫 search(query)，所以舊的來源不用改也能用。
+     */
+    default List<SearchResult> search(String query, Language language) throws Exception {
+        return search(query);
+    }
 }

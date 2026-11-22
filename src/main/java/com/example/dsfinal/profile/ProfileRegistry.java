@@ -12,83 +12,108 @@ import org.springframework.boot.json.JsonParserFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import com.example.dsfinal.language.Language;
+import com.example.dsfinal.language.LanguageRegistry;
+
 /**
- * 讀取 profiles.json，提供所有身份。
- * 改完 profiles.json 存檔，devtools 會自動重新啟動，前端就會出現新的身份按鈕。
+ * 讀取 profiles.json（預設語言）和 profiles.<語言>.json（翻譯），提供所有身份。
+ * 改完 json 存檔，devtools 會自動重新啟動，前端就會出現新的身份按鈕。
+ *
+ * 翻譯檔的格式：以身份 id 為 key，只寫要翻譯的欄位即可
+ *   { "pet-owner": { "name": "Dog owner", "querySuffix": "dog", "keywords": { "corgi": 3 } } }
+ * 翻譯檔不存在、或沒有某個身份的翻譯，那個身份就顯示預設語言的內容。
  */
 @Component
 public class ProfileRegistry {
 
     private static final String FILE = "profiles.json";
 
+    /** 預設語言的身份（profiles.json 的內容） */
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
+    /** 語言代碼 → 身份 id → 翻譯區塊 */
+    private final Map<String, Map<?, ?>> translations = new LinkedHashMap<>();
+    private final LanguageRegistry languages;
 
-    public ProfileRegistry() throws IOException {
-        Map<String, Object> root = JsonParserFactory.getJsonParser().parseMap(readFile());
+    public ProfileRegistry(LanguageRegistry languages) throws IOException {
+        this.languages = languages;
+        String defaultCode = languages.defaultLanguage().code();
+
+        Map<String, Object> root = JsonParserFactory.getJsonParser().parseMap(readFile(FILE));
         for (Object item : (List<?>) root.get("profiles")) {
-            Profile profile = toProfile((Map<?, ?>) item);
+            Profile profile = toProfile((Map<?, ?>) item, defaultCode);
             profiles.put(profile.id(), profile);
         }
         if (profiles.isEmpty()) {
             throw new IllegalStateException(FILE + " 裡至少要有一個身份");
         }
+
+        for (Language language : languages.all()) {
+            if (language.code().equals(defaultCode)) {
+                continue;
+            }
+            String file = "profiles." + language.code() + ".json";
+            if (new ClassPathResource(file).exists()) {
+                translations.put(language.code(), JsonParserFactory.getJsonParser().parseMap(readFile(file)));
+            }
+        }
     }
 
-    /** 所有身份（照 profiles.json 的順序） */
+    /** 所有身份（預設語言，照 profiles.json 的順序） */
     public List<Profile> all() {
         return List.copyOf(profiles.values());
     }
 
-    /** 用 id 找身份；找不到或沒給就用第一個 */
-    public Profile get(String id) {
-        if (id != null && profiles.containsKey(id)) {
-            return profiles.get(id);
+    /** 所有身份，換成指定語言 */
+    public List<Profile> all(String languageCode) {
+        List<Profile> list = new ArrayList<>();
+        for (Profile profile : profiles.values()) {
+            list.add(localize(profile, languageCode));
         }
-        return profiles.values().iterator().next();
+        return list;
+    }
+
+    /** 用 id 找身份；找不到或沒給就用第一個（預設語言） */
+    public Profile get(String id) {
+        return get(id, null);
+    }
+
+    /** 用 id 找身份並換成指定語言；id 找不到就用第一個 */
+    public Profile get(String id, String languageCode) {
+        Profile base = (id != null && profiles.containsKey(id))
+                ? profiles.get(id)
+                : profiles.values().iterator().next();
+        return localize(base, languageCode);
+    }
+
+    private Profile localize(Profile base, String languageCode) {
+        Language language = languages.get(languageCode);
+        if (language.code().equals(languages.defaultLanguage().code())) {
+            return base;
+        }
+        Map<?, ?> byId = translations.get(language.code());
+        Object block = byId == null ? null : byId.get(base.id());
+        return ProfileLocalizer.localize(base, block instanceof Map<?, ?> map ? map : null, language.code());
     }
 
     // ===== 讀取 JSON =====
 
-    private static String readFile() throws IOException {
-        try (InputStream in = new ClassPathResource(FILE).getInputStream()) {
+    private static String readFile(String file) throws IOException {
+        try (InputStream in = new ClassPathResource(file).getInputStream()) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
-    private static Profile toProfile(Map<?, ?> json) {
+    private static Profile toProfile(Map<?, ?> json, String defaultCode) {
         return new Profile(
-                text(json.get("id")),
-                text(json.get("name")),
-                text(json.get("description")),
-                readKeywords(json.get("keywords")),
-                readStopwords(json.get("stopwords")),
-                text(json.get("queryPrefix")),
-                text(json.get("querySuffix")));
-    }
-
-    /** "keywords": { "柴犬": 3, ... } → Map<詞, 權重> */
-    private static Map<String, Double> readKeywords(Object json) {
-        Map<String, Double> keywords = new LinkedHashMap<>();
-        if (json instanceof Map<?, ?> map) {
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                keywords.put(String.valueOf(entry.getKey()), ((Number) entry.getValue()).doubleValue());
-            }
-        }
-        return keywords;
-    }
-
-    /** "stopwords": [ "熱狗", ... ] → List<詞> */
-    private static List<String> readStopwords(Object json) {
-        List<String> stopwords = new ArrayList<>();
-        if (json instanceof List<?> list) {
-            for (Object word : list) {
-                stopwords.add(String.valueOf(word));
-            }
-        }
-        return stopwords;
-    }
-
-    private static String text(Object value) {
-        return value == null ? "" : String.valueOf(value).trim();
+                ProfileLocalizer.text(json.get("id")),
+                ProfileLocalizer.text(json.get("name")),
+                ProfileLocalizer.text(json.get("description")),
+                ProfileLocalizer.readKeywords(json.get("keywords")),
+                ProfileLocalizer.readStopwords(json.get("stopwords")),
+                ProfileLocalizer.text(json.get("queryPrefix")),
+                ProfileLocalizer.text(json.get("querySuffix")),
+                ProfileLocalizer.text(json.get("scorer")),
+                defaultCode,
+                true);
     }
 }

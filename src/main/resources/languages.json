@@ -1,0 +1,21 @@
+{
+  "default": "zh-TW",
+  "languages": [
+    {
+      "code": "zh-TW",
+      "label": "繁體中文",
+      "googleHl": "zh-tw",
+      "googleGl": "tw",
+      "braveLang": "zh-hant",
+      "braveCountry": "tw"
+    },
+    {
+      "code": "en",
+      "label": "English",
+      "googleHl": "en",
+      "googleGl": "tw",
+      "braveLang": "en",
+      "braveCountry": "tw"
+    }
+  ]
+}

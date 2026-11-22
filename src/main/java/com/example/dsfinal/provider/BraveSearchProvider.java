@@ -9,6 +9,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.example.dsfinal.language.Language;
 import com.example.dsfinal.model.SearchResult;
 
 /**
@@ -20,7 +21,7 @@ import com.example.dsfinal.model.SearchResult;
 public class BraveSearchProvider implements SearchProvider {
 
     private static final String URL =
-            "https://api.search.brave.com/res/v1/web/search?q={q}&count={count}&country=tw&search_lang=zh-hant";
+            "https://api.search.brave.com/res/v1/web/search?q={q}&count={count}&country={country}&search_lang={lang}";
 
     private static final int MAX_COUNT = 20;   // Brave 一次最多 20 筆
 
@@ -46,8 +47,18 @@ public class BraveSearchProvider implements SearchProvider {
 
     @Override
     public List<SearchResult> search(String query) {
+        return search(query, "zh-hant", "tw");
+    }
+
+    /** 依語言設定 search_lang 和 country，設定在 languages.json */
+    @Override
+    public List<SearchResult> search(String query, Language language) {
+        return search(query, language.braveLang(), language.braveCountry());
+    }
+
+    private List<SearchResult> search(String query, String lang, String country) {
         Map<String, Object> body = http.get()
-                .uri(URL, query, resultCount)
+                .uri(URL, query, resultCount, country, lang)
                 .header("Accept", "application/json")
                 .header("X-Subscription-Token", apiKey)
                 .retrieve()

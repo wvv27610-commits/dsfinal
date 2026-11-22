@@ -9,6 +9,9 @@ import java.util.List;
  * @param warnings      某些搜尋來源失敗時的訊息（其他來源的結果照樣回傳）
  * @param searchedQuery 實際送給搜尋來源的查詢（含強制附加的前後綴）
  * @param scorer        這次實際使用的計分算法 id
+ * @param profile       這次實際使用的身份 id
+ * @param language      這次實際使用的語言代碼（例如 zh-TW、en）
  */
-public record SearchResponse(List<SearchResult> results, List<String> warnings, String searchedQuery, String scorer) {
+public record SearchResponse(List<SearchResult> results, List<String> warnings, String searchedQuery,
+                             String scorer, String profile, String language) {
 }

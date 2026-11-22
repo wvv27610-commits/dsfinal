@@ -9,6 +9,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.example.dsfinal.language.Language;
 import com.example.dsfinal.model.SearchResult;
 
 /**
@@ -48,8 +49,18 @@ public class SerpApiGoogleProvider implements SearchProvider {
 
     @Override
     public List<SearchResult> search(String query) {
+        return search(query, "zh-tw", "tw");
+    }
+
+    /** 依語言設定 hl（結果語言）和 gl（地區），設定在 languages.json */
+    @Override
+    public List<SearchResult> search(String query, Language language) {
+        return search(query, language.googleHl(), language.googleGl());
+    }
+
+    private List<SearchResult> search(String query, String hl, String gl) {
         Map<String, Object> body = http.get()
-                .uri(URL, query, "zh-tw", "tw", resultCount, apiKey)
+                .uri(URL, query, hl, gl, resultCount, apiKey)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
