@@ -6,11 +6,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
+import com.example.dsfinal.crawler.LinkTreeBuilder;
 import com.example.dsfinal.language.Language;
 import com.example.dsfinal.language.LanguageRegistry;
 import com.example.dsfinal.model.ScorerInfo;
@@ -41,6 +43,7 @@ public class SearchService {
     private final ProfileRegistry profiles;
     private final LanguageRegistry languages;
     private final HtmlKeywordExtractor pageFetcher;
+    private final LinkTreeBuilder linkTrees;
     private final String globalPrefix;
     private final String globalSuffix;
 
@@ -49,6 +52,7 @@ public class SearchService {
                          ProfileRegistry profiles,
                          LanguageRegistry languages,
                          HtmlKeywordExtractor pageFetcher,
+                         LinkTreeBuilder linkTrees,
                          @Value("${search.scorer:my}") String scorerName,
                          @Value("${search.query-prefix:}") String globalPrefix,
                          @Value("${search.query-suffix:}") String globalSuffix) {
@@ -56,6 +60,7 @@ public class SearchService {
         this.profiles = profiles;
         this.languages = languages;
         this.pageFetcher = pageFetcher;
+        this.linkTrees = linkTrees;
         this.globalPrefix = globalPrefix.trim();
         this.globalSuffix = globalSuffix.trim();
 
@@ -200,7 +205,7 @@ public class SearchService {
         }
         String longerSnippet = b.snippet().length() > a.snippet().length() ? b.snippet() : a.snippet();
         int bestRank = Math.min(a.rank(), b.rank());
-        return new SearchResult(a.title(), a.url(), longerSnippet, sources, bestRank, 0);
+        return new SearchResult(a.title(), a.url(), longerSnippet, sources, bestRank, 0, null);
     }
 
     /** 比對用：忽略 http/https、www、結尾的 / */
@@ -211,18 +216,17 @@ public class SearchService {
     // ===== 4 + 5. 計分與排序 =====
 
     private List<SearchResult> scoreAndFilter(List<SearchResult> results, ScoringContext ctx, ResultScorer scorer) {
-        // 計分要用到網頁內容：先「同時」把所有網頁下載好，下面的迴圈就不用一個一個等
+        // 計分要用到網頁內容：先「同時」把所有網頁下載好
         results.parallelStream().forEach(r -> pageFetcher.fetch(r.url()));
 
-        List<SearchResult> scored = new ArrayList<>();
-        for (SearchResult r : results) {
-            if (!scorer.accept(ctx, r)) {
-                continue;   // 例如 Exact 詞組沒出現 → 排除
-            }
-            double score = scorer.score(ctx, r);
-            scored.add(r.withScore(score));
-        }
-        return scored;
+        // 每筆結果也「同時」計分（建連結樹要下載子網頁，一筆一筆等會很慢）。
+        // 例如 Exact 詞組沒出現 → accept 回傳 false → 排除。
+        // 計分算法有建連結樹的話，把樹附在結果上給前端顯示。
+        return results.parallelStream()
+                .filter(r -> scorer.accept(ctx, r))
+                .map(r -> r.withScore(scorer.score(ctx, r))
+                           .withLinkTree(linkTrees.cached(r.url(), ctx.profile())))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     /** 分數高的先；同分就照原始名次 */

@@ -17,5 +17,11 @@
   "searchFailed": "搜尋失敗：{message}",
   "resultSources": "來源",
   "resultRank": "原名次",
+  "treeSummary": "連結樹：{links} 個同網站連結，{related} 個相關（加權相關比例 {ratio}%）",
+  "treeEmpty": "連結樹：沒有找到同網站的連結",
+  "treeRootKeywords": "本頁關鍵字：{list}",
+  "treeRelated": "相關",
+  "treeNotFetched": "未下載",
+  "treeHint": "第 1 層是這個網頁上的連結，第 2 層是第 1 層網頁上的連結。第 2 層只看連結文字，不下載。",
   "scorers": {}
 }

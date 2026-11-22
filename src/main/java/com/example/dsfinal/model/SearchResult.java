@@ -2,6 +2,8 @@ package com.example.dsfinal.model;
 
 import java.util.List;
 
+import com.example.dsfinal.crawler.LinkTree;
+
 /**
  * 一筆搜尋結果。
  *
@@ -11,15 +13,21 @@ import java.util.List;
  * @param sources 這筆結果是從哪些搜尋來源拿到的（例如 ["google", "brave"]），同一個網址出現在多個來源會合併成一筆
  * @param rank    在原本搜尋來源裡的名次（1 = 第一名；出現在多個來源時取最好的名次）
  * @param score   排序分數，由 scoring 套件裡的 ResultScorer 算出來
+ * @param linkTree 這筆結果的連結樹（計分算法有用到才有，否則是 null）
  */
-public record SearchResult(String title, String url, String snippet, List<String> sources, int rank, double score) {
+public record SearchResult(String title, String url, String snippet, List<String> sources, int rank, double score,
+                           LinkTree linkTree) {
 
     /** 搜尋來源用的建構方式：只有一個來源、分數先設 0 */
     public static SearchResult of(String title, String url, String snippet, String source, int rank) {
-        return new SearchResult(title, url, snippet, List.of(source), rank, 0);
+        return new SearchResult(title, url, snippet, List.of(source), rank, 0, null);
     }
 
     public SearchResult withScore(double newScore) {
-        return new SearchResult(title, url, snippet, sources, rank, newScore);
+        return new SearchResult(title, url, snippet, sources, rank, newScore, linkTree);
+    }
+
+    public SearchResult withLinkTree(LinkTree tree) {
+        return new SearchResult(title, url, snippet, sources, rank, score, tree);
     }
 }

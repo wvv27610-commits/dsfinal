@@ -309,7 +309,66 @@ function renderResult(r) {
       <div class="score">
         score: ${Number(r.score).toFixed(2)} · ${escapeHtml(t('resultSources'))}: ${escapeHtml(r.sources.join(', '))} · ${escapeHtml(t('resultRank'))}: ${r.rank}
       </div>
+      ${renderLinkTree(r.linkTree)}
     </div>`;
+}
+
+// ===== 連結樹 =====
+const MAX_LINK_TEXT_LENGTH = 60;
+const MAX_KEYWORDS_SHOWN = 5;
+
+/** 每筆結果下方可展開的連結樹（計分算法沒有建樹時不顯示） */
+function renderLinkTree(tree) {
+  if (!tree) return '';
+  if (!tree.linkCount) {
+    return `<div class="link-tree-empty">${escapeHtml(t('treeEmpty'))}</div>`;
+  }
+  const summary = t('treeSummary', {
+    links: tree.linkCount,
+    related: tree.relatedCount,
+    ratio: (tree.relatedRatio * 100).toFixed(1)
+  });
+  const rootKeywords = formatKeywordCounts(tree.root.keywordCounts);
+  return `
+    <details class="link-tree">
+      <summary>${escapeHtml(summary)}</summary>
+      ${rootKeywords ? `<div class="tree-root-keywords">${escapeHtml(t('treeRootKeywords', { list: rootKeywords }))}</div>` : ''}
+      <div class="tree-hint">${escapeHtml(t('treeHint'))}</div>
+      ${renderTreeChildren(tree.root.children)}
+    </details>`;
+}
+
+/** 遞迴畫出子節點（每一層是一個 <ul>） */
+function renderTreeChildren(children) {
+  if (!children || !children.length) return '';
+  return `<ul>${children.map(renderTreeNode).join('')}</ul>`;
+}
+
+function renderTreeNode(node) {
+  const label = node.text && node.text.trim() ? node.text.trim() : node.url;
+  const tags = [];
+  if (node.related) {
+    tags.push(`<span class="tree-tag related">${escapeHtml(t('treeRelated'))}: ${escapeHtml(node.matchedKeywords.join(', '))}</span>`);
+  }
+  const counts = formatKeywordCounts(node.keywordCounts);
+  if (node.fetched && counts) {
+    tags.push(`<span class="tree-tag counts">${escapeHtml(counts)}</span>`);
+  }
+  return `
+    <li class="depth-${node.depth}${node.related ? ' is-related' : ''}">
+      <a href="${escapeHtml(node.url)}" title="${escapeHtml(node.url)}" target="_blank" rel="noopener">${escapeHtml(truncateText(label, MAX_LINK_TEXT_LENGTH))}</a>
+      ${tags.join(' ')}
+      ${renderTreeChildren(node.children)}
+    </li>`;
+}
+
+/** {"柴犬": 3, "狗": 12} → "狗 ×12, 柴犬 ×3"（次數多的在前，最多顯示 5 個） */
+function formatKeywordCounts(counts) {
+  return Object.entries(counts || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_KEYWORDS_SHOWN)
+    .map(([word, n]) => `${word} ×${n}`)
+    .join(', ');
 }
 
 function onSubmit(event) {

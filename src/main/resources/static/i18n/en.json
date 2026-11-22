@@ -17,6 +17,12 @@
   "searchFailed": "Search failed: {message}",
   "resultSources": "sources",
   "resultRank": "original rank",
+  "treeSummary": "Link tree: {links} same-site links, {related} related (weighted related ratio {ratio}%)",
+  "treeEmpty": "Link tree: no same-site links found",
+  "treeRootKeywords": "Keywords on this page: {list}",
+  "treeRelated": "related",
+  "treeNotFetched": "not downloaded",
+  "treeHint": "Level 1 = links on this page, level 2 = links on those pages. Level 2 is judged by link text only and is not downloaded.",
   "scorers": {
     "my": {
       "name": "Goo狗 formula",
