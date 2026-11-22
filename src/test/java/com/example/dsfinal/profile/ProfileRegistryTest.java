@@ -35,6 +35,17 @@ class ProfileRegistryTest {
     }
 
     @Test
+    void everyProfileBelongsToAGroup() throws Exception {
+        ProfileRegistry registry = new ProfileRegistry(new LanguageRegistry());
+        List<String> groupIds = registry.groups("zh-TW").stream().map(ProfileGroup::id).toList();
+        for (Profile p : registry.all()) {
+            assertTrue(groupIds.contains(p.group()), p.id() + " 的 group「" + p.group() + "」不在 groups 裡");
+        }
+        assertEquals("日常照顧", registry.groups("zh-TW").get(0).name());
+        assertEquals("Daily care", registry.groups("en").get(0).name());
+    }
+
+    @Test
     void unknownProfileFallsBackToFirst() throws Exception {
         ProfileRegistry registry = new ProfileRegistry(new LanguageRegistry());
         assertEquals(registry.all().get(0).id(), registry.get("no-such-profile", "en").id());

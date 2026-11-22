@@ -7,7 +7,6 @@
   "notTranslated": "（尚未翻譯）",
   "scorerLabel": "計分算法",
   "defaultTag": "（預設）",
-  "profileScorerTag": "（此身份預設）",
   "defaultName": "預設",
   "searching": "以「{profile}」身份、「{scorer}」算法搜尋中…（需要讀取網頁，請稍候）",
   "found": "找到 {count} 筆「{q}」的結果",
@@ -23,5 +22,6 @@
   "treeRelated": "相關",
   "treeNotFetched": "未下載",
   "treeHint": "第 1 層是這個網頁上的連結，第 2 層是第 1 層網頁上的連結。第 2 層只看連結文字，不下載。",
+  "ungrouped": "其他",
   "scorers": {}
 }

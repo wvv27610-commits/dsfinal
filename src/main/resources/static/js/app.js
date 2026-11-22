@@ -26,6 +26,8 @@ let messages = {};
 let fallbackMessages = {};
 // 身份清單由後端 /api/profiles 提供（內容在 profiles.json 和 profiles.<語言>.json），這裡不用寫死
 let profiles = [];
+// 身份的分組（內容在 profiles.json 的 groups），按鈕會分區顯示
+let groups = [];
 let currentProfileId = params.get('profile');
 // 計分算法清單由後端 /api/scorers 提供（所有 @Component 的 ResultScorer），預設的排第一個
 let scorers = [];
@@ -159,15 +161,19 @@ async function onLanguageChange() {
   renderScorers();
   updateUrl();
 
-  // 已經有關鍵字的話，用新的語言重新搜尋（搜尋語言和身份關鍵字都會換）
-  const q = input.value.trim();
-  if (q) doSearch(q);
+  // 有關鍵字就用新的語言重新搜尋（搜尋語言和身份關鍵字都會換），沒有就清掉舊結果
+  searchAgainOrClear();
 }
 
 // ===== 身份切換 =====
 async function loadProfiles() {
-  profiles = await fetchJson('/api/profiles?lang=' + encodeURIComponent(currentLang));
+  const lang = encodeURIComponent(currentLang);
+  [profiles, groups] = await Promise.all([
+    fetchJson('/api/profiles?lang=' + lang),
+    fetchJson('/api/groups?lang=' + lang)
+  ]);
   if (!Array.isArray(profiles)) profiles = [];
+  if (!Array.isArray(groups)) groups = [];
   // 網址沒指定或指定了不存在的身份 → 用第一個
   if (!currentProfile()) {
     currentProfileId = profiles.length ? profiles[0].id : null;
@@ -175,19 +181,32 @@ async function loadProfiles() {
   renderProfiles();
 }
 
+/** 按分組畫出身份按鈕：每組一列，前面是組名；沒有分組（或組別寫錯）的身份放在最後的「其他」 */
 function renderProfiles() {
-  profilesEl.innerHTML = profiles.map(p => {
-    const active = p.id === currentProfileId;
-    const marker = p.translated ? '' : `<span class="untranslated">${escapeHtml(t('notTranslated'))}</span>`;
-    return `
-      <button type="button" class="profile-chip${active ? ' active' : ''}"
-              role="radio" aria-checked="${active}" data-id="${escapeHtml(p.id)}">
-        ${escapeHtml(p.name)}${marker}
-      </button>`;
-  }).join('');
+  const knownGroupIds = groups.map(g => g.id);
+  const sections = groups
+    .map(g => ({ name: g.name, members: profiles.filter(p => p.group === g.id) }))
+    .concat([{ name: t('ungrouped'), members: profiles.filter(p => !knownGroupIds.includes(p.group)) }])
+    .filter(section => section.members.length);
+
+  profilesEl.innerHTML = sections.map(section => `
+    <div class="profile-group">
+      <span class="group-label">${escapeHtml(section.name)}</span>
+      <div class="group-chips">${section.members.map(renderProfileChip).join('')}</div>
+    </div>`).join('');
 
   const profile = currentProfile();
   profileDescEl.textContent = profile ? profile.description : '';
+}
+
+function renderProfileChip(p) {
+  const active = p.id === currentProfileId;
+  const marker = p.translated ? '' : `<span class="untranslated">${escapeHtml(t('notTranslated'))}</span>`;
+  return `
+    <button type="button" class="profile-chip${active ? ' active' : ''}"
+            role="radio" aria-checked="${active}" data-id="${escapeHtml(p.id)}">
+      ${escapeHtml(p.name)}${marker}
+    </button>`;
 }
 
 function onProfileClick(event) {
@@ -195,18 +214,25 @@ function onProfileClick(event) {
   if (!button || button.dataset.id === currentProfileId) return;
 
   currentProfileId = button.dataset.id;
-  // 身份在 profiles.json 有指定計分算法的話，切換身份時一起換
-  const profileScorer = currentProfile()?.scorer;
-  if (profileScorer && scorers.some(s => s.id === profileScorer)) {
-    currentScorerId = profileScorer;
-  }
   renderProfiles();
-  renderScorers();
   updateUrl();
+  searchAgainOrClear();
+}
 
-  // 已經有關鍵字的話，用新的身份重新搜尋
+/** 搜尋框有關鍵字就用新的設定重新搜尋；沒有就清掉舊的結果（不會沒輸入就跑出結果） */
+function searchAgainOrClear() {
   const q = input.value.trim();
-  if (q) doSearch(q);
+  if (q) {
+    doSearch(q);
+  } else {
+    clearResults();
+  }
+}
+
+function clearResults() {
+  document.body.classList.remove('has-results');
+  statusEl.textContent = '';
+  resultsEl.innerHTML = '';
 }
 
 // ===== 計分算法切換 =====
@@ -215,28 +241,18 @@ async function loadScorers() {
   if (!Array.isArray(scorers)) scorers = [];
 }
 
-/** 決定一開始用哪個算法：網址指定的 → 身份指定的 → 預設（第一個） */
+/** 網址沒指定或指定了不存在的算法 → 用預設（第一個） */
 function pickInitialScorer() {
-  if (currentScorer()) return;
-  const profileScorer = currentProfile()?.scorer;
-  if (profileScorer && scorers.some(s => s.id === profileScorer)) {
-    currentScorerId = profileScorer;
-  } else {
+  if (!currentScorer()) {
     currentScorerId = scorers.length ? scorers[0].id : null;
   }
 }
 
 function renderScorers() {
-  const profileScorer = currentProfile()?.scorer;
-  scorerSelect.innerHTML = scorers.map(s => {
-    let tag = '';
-    if (s.id === profileScorer) tag = t('profileScorerTag');
-    else if (s.isDefault) tag = t('defaultTag');
-    return `
-      <option value="${escapeHtml(s.id)}"${s.id === currentScorerId ? ' selected' : ''}>
-        ${escapeHtml(scorerText(s).name)}${escapeHtml(tag)}
-      </option>`;
-  }).join('');
+  scorerSelect.innerHTML = scorers.map(s => `
+    <option value="${escapeHtml(s.id)}"${s.id === currentScorerId ? ' selected' : ''}>
+      ${escapeHtml(scorerText(s).name)}${s.isDefault ? escapeHtml(t('defaultTag')) : ''}
+    </option>`).join('');
   const scorer = currentScorer();
   scorerDescEl.textContent = scorer ? scorerText(scorer).description : '';
 }
@@ -245,10 +261,7 @@ function onScorerChange() {
   currentScorerId = scorerSelect.value;
   renderScorers();
   updateUrl();
-
-  // 已經有關鍵字的話，用新的算法重新搜尋
-  const q = input.value.trim();
-  if (q) doSearch(q);
+  searchAgainOrClear();
 }
 
 // ===== 搜尋 =====

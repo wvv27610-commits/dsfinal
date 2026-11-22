@@ -15,12 +15,12 @@ import java.util.Map;
  * @param stopwords   排除詞：權重 0，只用來避免把裡面的字算進去（例如「熱狗」不算「狗」）
  * @param queryPrefix 搜尋時強制加在查詢前面的字（沒有就是空字串）
  * @param querySuffix 搜尋時強制加在查詢後面的字（沒有就是空字串）
- * @param scorer      這個身份預設使用的計分算法 id（@Component 的名字）；空字串 = 用全站預設
+ * @param group       屬於哪一組（profiles.json 裡 groups 的 id；空字串 = 沒有分組）
  * @param language    這份資料是哪個語言（例如 zh-TW、en）
  * @param translated  這個身份是否有這個語言的翻譯；false 代表顯示的是預設語言的內容
  */
 public record Profile(String id, String name, String description,
                       Map<String, Double> keywords, List<String> stopwords,
-                      String queryPrefix, String querySuffix,
-                      String scorer, String language, boolean translated) {
+                      String queryPrefix, String querySuffix, String group,
+                      String language, boolean translated) {
 }

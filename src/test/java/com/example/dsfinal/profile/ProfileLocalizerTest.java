@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class ProfileLocalizerTest {
 
     private final Profile base = new Profile("pet-owner", "寵物主人", "照顧狗狗的日常",
-            Map.of("柴犬", 3.0, "狗", 2.0), List.of("熱狗"), "", "狗", "my", "zh-TW", true);
+            Map.of("柴犬", 3.0, "狗", 2.0), List.of("熱狗"), "", "狗", "daily", "zh-TW", true);
 
     @Test
     void translationReplacesTextsAndMergesKeywords() {
@@ -32,7 +32,7 @@ class ProfileLocalizerTest {
         assertEquals(3.0, p.keywords().get("corgi"));        // 加上英文關鍵字
         assertEquals(1.0, p.keywords().get("狗"));           // 同一個詞以翻譯為準
         assertEquals(List.of("熱狗", "hot dog"), p.stopwords());
-        assertEquals("my", p.scorer());                      // 公式跟著身份走
+        assertEquals("daily", p.group());                     // 分組不跟著語言變
         assertEquals("en", p.language());
         assertTrue(p.translated());
     }

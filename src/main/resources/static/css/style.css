@@ -74,12 +74,32 @@ button:hover { filter: brightness(1.08); }
 .result p { margin: 0; color: var(--text); line-height: 1.5; }
 .result .score { color: var(--muted); font-size: .8rem; margin-top: 6px; }
 
-/* ===== 身份切換 ===== */
+/* ===== 身份切換（分組顯示）===== */
 .profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 4px 0;
+}
+.profile-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.group-label {
+  flex: 0 0 6.5em;
+  font-size: .8rem;
+  color: var(--muted);
+  text-align: right;
+}
+.group-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 14px 4px 0;
+}
+@media (max-width: 520px) {
+  .profile-group { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .group-label { flex: none; text-align: left; }
 }
 .profile-chip {
   background: var(--card);

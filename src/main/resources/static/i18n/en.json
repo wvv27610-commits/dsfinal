@@ -7,7 +7,6 @@
   "notTranslated": " (not translated yet)",
   "scorerLabel": "Scoring formula",
   "defaultTag": " (default)",
-  "profileScorerTag": " (this profile's default)",
   "defaultName": "default",
   "searching": "Searching as “{profile}” with “{scorer}”… (reading the pages, please wait)",
   "found": "Results for “{q}”: {count}",
@@ -23,6 +22,7 @@
   "treeRelated": "related",
   "treeNotFetched": "not downloaded",
   "treeHint": "Level 1 = links on this page, level 2 = links on those pages. Level 2 is judged by link text only and is not downloaded.",
+  "ungrouped": "Other",
   "scorers": {
     "my": {
       "name": "Goo狗 formula",

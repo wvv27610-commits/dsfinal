@@ -22,6 +22,9 @@ import com.example.dsfinal.language.LanguageRegistry;
  * 翻譯檔的格式：以身份 id 為 key，只寫要翻譯的欄位即可
  *   { "pet-owner": { "name": "Dog owner", "querySuffix": "dog", "keywords": { "corgi": 3 } } }
  * 翻譯檔不存在、或沒有某個身份的翻譯，那個身份就顯示預設語言的內容。
+ *
+ * 分組：profiles.json 的 "groups": [ {"id": "daily", "name": "日常照顧"}, ... ]，
+ * 每個身份用 "group": "daily" 指定組別；翻譯檔用 "groups": { "daily": {"name": "Daily care"} } 翻譯組名。
  */
 @Component
 public class ProfileRegistry {
@@ -30,6 +33,8 @@ public class ProfileRegistry {
 
     /** 預設語言的身份（profiles.json 的內容） */
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
+    /** 分組（預設語言，照 profiles.json 的順序） */
+    private final List<ProfileGroup> groups = new ArrayList<>();
     /** 語言代碼 → 身份 id → 翻譯區塊 */
     private final Map<String, Map<?, ?>> translations = new LinkedHashMap<>();
     private final LanguageRegistry languages;
@@ -39,6 +44,12 @@ public class ProfileRegistry {
         String defaultCode = languages.defaultLanguage().code();
 
         Map<String, Object> root = JsonParserFactory.getJsonParser().parseMap(readFile(FILE));
+        if (root.get("groups") instanceof List<?> list) {
+            for (Object item : list) {
+                Map<?, ?> json = (Map<?, ?>) item;
+                groups.add(new ProfileGroup(ProfileLocalizer.text(json.get("id")), ProfileLocalizer.text(json.get("name"))));
+            }
+        }
         for (Object item : (List<?>) root.get("profiles")) {
             Profile profile = toProfile((Map<?, ?>) item, defaultCode);
             profiles.put(profile.id(), profile);
@@ -68,6 +79,25 @@ public class ProfileRegistry {
         List<Profile> list = new ArrayList<>();
         for (Profile profile : profiles.values()) {
             list.add(localize(profile, languageCode));
+        }
+        return list;
+    }
+
+    /** 所有分組，組名換成指定語言（沒翻譯的沿用預設語言） */
+    public List<ProfileGroup> groups(String languageCode) {
+        Language language = languages.get(languageCode);
+        Map<?, ?> byId = translations.get(language.code());
+        Object translatedGroups = byId == null ? null : byId.get("groups");
+        List<ProfileGroup> list = new ArrayList<>();
+        for (ProfileGroup group : groups) {
+            String name = group.name();
+            if (translatedGroups instanceof Map<?, ?> map && map.get(group.id()) instanceof Map<?, ?> block) {
+                String translated = ProfileLocalizer.text(block.get("name"));
+                if (!translated.isEmpty()) {
+                    name = translated;
+                }
+            }
+            list.add(new ProfileGroup(group.id(), name));
         }
         return list;
     }
@@ -112,7 +142,7 @@ public class ProfileRegistry {
                 ProfileLocalizer.readStopwords(json.get("stopwords")),
                 ProfileLocalizer.text(json.get("queryPrefix")),
                 ProfileLocalizer.text(json.get("querySuffix")),
-                ProfileLocalizer.text(json.get("scorer")),
+                ProfileLocalizer.text(json.get("group")),
                 defaultCode,
                 true);
     }

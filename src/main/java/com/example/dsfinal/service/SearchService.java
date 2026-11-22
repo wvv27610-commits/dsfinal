@@ -30,8 +30,7 @@ import com.example.dsfinal.scoring.SearchQuery;
  *   1. 組出實際要搜尋的字串（加上強制前後綴；身份的前後綴和關鍵字會換成使用者選的語言）
  *   2. 同時向所有已啟用的 SearchProvider 搜尋（帶上語言參數）
  *   3. 同一個網址出現在多個來源就合併成一筆
- *   4. 計分（Exact 不符合的排除）。計分算法的選擇順序：
- *        使用者指定的 → 身份在 profiles.json 設定的 scorer → application.properties 的 search.scorer
+ *   4. 用使用者選的計分算法、依身份計分（Exact 不符合的排除）
  *   5. 排序：分數高的先 → 原始名次好的先
  */
 @Service
@@ -94,13 +93,13 @@ public class SearchService {
 
     /**
      * @param profileId    身份 id；沒給或找不到就用 profiles.json 的第一個
-     * @param scorerId     計分算法的 id（@Component 的名字）；沒給或找不到就用身份設定的算法，再沒有就用 search.scorer
+     * @param scorerId     計分算法的 id（@Component 的名字）；沒給或找不到就用 search.scorer 設定的預設算法
      * @param languageCode 語言代碼（例如 zh-TW、en）；沒給或找不到就用 languages.json 的預設語言
      */
     public SearchResponse search(String query, String profileId, String scorerId, String languageCode) {
         Language language = languages.get(languageCode);
         Profile profile = profiles.get(profileId, language.code());
-        String usedScorerId = chooseScorer(scorerId, profile);
+        String usedScorerId = (scorerId != null && scorers.containsKey(scorerId)) ? scorerId : defaultScorerId;
         ResultScorer scorer = scorers.get(usedScorerId);
 
         if (query == null || query.isBlank()) {
@@ -124,16 +123,6 @@ public class SearchService {
         return new SearchResponse(results, warnings, searchedQuery, usedScorerId, profile.id(), language.code());
     }
 
-    /** 使用者指定的 → 身份設定的 → 全站預設 */
-    private String chooseScorer(String requested, Profile profile) {
-        if (requested != null && scorers.containsKey(requested)) {
-            return requested;
-        }
-        if (!profile.scorer().isBlank() && scorers.containsKey(profile.scorer())) {
-            return profile.scorer();
-        }
-        return defaultScorerId;
-    }
 
     // ===== 1. 組查詢字串 =====
 

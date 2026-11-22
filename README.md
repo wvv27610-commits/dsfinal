@@ -295,6 +295,7 @@ public class MySearchProvider implements SearchProvider {
    {
      "id": "grooming",
      "name": "美容洗澡",
+     "group": "daily",
      "description": "狗狗洗澡、剪毛、美容店資訊",
      "queryPrefix": "",
      "querySuffix": "狗 美容",
@@ -302,6 +303,9 @@ public class MySearchProvider implements SearchProvider {
      "stopwords": ["熱狗", "犬儒", "狗屁", "走狗"]
    }
    ```
+
+   `group` 是這個身份要放在哪一組，可以用的組別寫在 `profiles.json` 最上面的 `groups`（目前有 `daily` 日常照顧、`health` 健康醫療、`adopt-travel` 領養與外出、`knowledge` 知識與其他）。
+   要新增一組，就在 `groups` 加一筆 `{ "id": "...", "name": "..." }`，並在 `profiles.en.json` 的 `groups` 加上英文組名。沒寫 `group` 的身份會放在最後的「其他」。
 
 2. 在 `profiles.en.json` 加同一個 id 的英文版（只寫要翻譯的欄位）：
 
@@ -315,11 +319,6 @@ public class MySearchProvider implements SearchProvider {
    ```
 
    沒寫英文版也能用，英文介面會在按鈕上標「not translated yet」，並沿用中文的關鍵字和附加字。
-
-### 每個身份用不同的計分公式
-
-在身份裡加一行 `"scorer": "算法id"`（例如 `"scorer": "Weight"`），切換到這個身份時，計分算法選單會自動換成它，選單上標「（此身份預設）」。
-不寫就用 `application.properties` 的 `search.scorer`。使用者手動選的算法還是優先。目前「飼料選購」有設定 `"scorer": "my"` 當範例。
 
 ### 英文關鍵字的比對規則
 
