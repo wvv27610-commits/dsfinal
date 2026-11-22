@@ -1,0 +1,21 @@
+{
+  "pageTitle": "Goo狗 Search",
+  "languageLabel": "語言",
+  "searchPlaceholder": "輸入關鍵字…",
+  "searchButton": "搜尋",
+  "profilesLabel": "搜尋身份",
+  "notTranslated": "（尚未翻譯）",
+  "scorerLabel": "計分算法",
+  "defaultTag": "（預設）",
+  "profileScorerTag": "（此身份預設）",
+  "defaultName": "預設",
+  "searching": "以「{profile}」身份、「{scorer}」算法搜尋中…（需要讀取網頁，請稍候）",
+  "found": "找到 {count} 筆「{q}」的結果",
+  "notFound": "找不到「{q}」的相關結果",
+  "actualQuery": "（實際搜尋：{query}）",
+  "partialFailure": "（部分來源失敗：{warnings}）",
+  "searchFailed": "搜尋失敗：{message}",
+  "resultSources": "來源",
+  "resultRank": "原名次",
+  "scorers": {}
+}

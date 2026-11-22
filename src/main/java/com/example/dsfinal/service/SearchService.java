@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.dsfinal.crawler.HtmlKeywordExtractor;
+import com.example.dsfinal.language.Language;
+import com.example.dsfinal.language.LanguageRegistry;
 import com.example.dsfinal.model.ScorerInfo;
 import com.example.dsfinal.model.SearchResponse;
 import com.example.dsfinal.model.SearchResult;
@@ -23,10 +25,11 @@ import com.example.dsfinal.scoring.SearchQuery;
 
 /**
  * 搜尋流程：
- *   1. 組出實際要搜尋的字串（加上強制前後綴）
- *   2. 同時向所有已啟用的 SearchProvider 搜尋
+ *   1. 組出實際要搜尋的字串（加上強制前後綴；身份的前後綴和關鍵字會換成使用者選的語言）
+ *   2. 同時向所有已啟用的 SearchProvider 搜尋（帶上語言參數）
  *   3. 同一個網址出現在多個來源就合併成一筆
- *   4. 用使用者選的計分算法、依身份計分（Exact 不符合的排除）
+ *   4. 計分（Exact 不符合的排除）。計分算法的選擇順序：
+ *        使用者指定的 → 身份在 profiles.json 設定的 scorer → application.properties 的 search.scorer
  *   5. 排序：分數高的先 → 原始名次好的先
  */
 @Service
@@ -36,6 +39,7 @@ public class SearchService {
     private final Map<String, ResultScorer> scorers;
     private final String defaultScorerId;
     private final ProfileRegistry profiles;
+    private final LanguageRegistry languages;
     private final HtmlKeywordExtractor pageFetcher;
     private final String globalPrefix;
     private final String globalSuffix;
@@ -43,12 +47,14 @@ public class SearchService {
     public SearchService(List<SearchProvider> providers,
                          Map<String, ResultScorer> scorers,
                          ProfileRegistry profiles,
+                         LanguageRegistry languages,
                          HtmlKeywordExtractor pageFetcher,
                          @Value("${search.scorer:my}") String scorerName,
                          @Value("${search.query-prefix:}") String globalPrefix,
                          @Value("${search.query-suffix:}") String globalSuffix) {
         this.providers = providers;
         this.profiles = profiles;
+        this.languages = languages;
         this.pageFetcher = pageFetcher;
         this.globalPrefix = globalPrefix.trim();
         this.globalSuffix = globalSuffix.trim();
@@ -76,18 +82,26 @@ public class SearchService {
         return list;
     }
 
-    /**
-     * @param scorerId 計分算法的 id（@Component 的名字）；沒給或找不到就用 search.scorer 設定的預設算法
-     */
+    /** 用預設語言搜尋（舊的呼叫方式） */
     public SearchResponse search(String query, String profileId, String scorerId) {
-        String usedScorerId = (scorerId != null && scorers.containsKey(scorerId)) ? scorerId : defaultScorerId;
+        return search(query, profileId, scorerId, null);
+    }
+
+    /**
+     * @param profileId    身份 id；沒給或找不到就用 profiles.json 的第一個
+     * @param scorerId     計分算法的 id（@Component 的名字）；沒給或找不到就用身份設定的算法，再沒有就用 search.scorer
+     * @param languageCode 語言代碼（例如 zh-TW、en）；沒給或找不到就用 languages.json 的預設語言
+     */
+    public SearchResponse search(String query, String profileId, String scorerId, String languageCode) {
+        Language language = languages.get(languageCode);
+        Profile profile = profiles.get(profileId, language.code());
+        String usedScorerId = chooseScorer(scorerId, profile);
         ResultScorer scorer = scorers.get(usedScorerId);
 
         if (query == null || query.isBlank()) {
-            return new SearchResponse(List.of(), List.of(), "", usedScorerId);
+            return new SearchResponse(List.of(), List.of(), "", usedScorerId, profile.id(), language.code());
         }
         String userQuery = query.trim();
-        Profile profile = profiles.get(profileId);
         SearchQuery parsedQuery = SearchQuery.parse(userQuery);
         ScoringContext ctx = new ScoringContext(parsedQuery, profile);
 
@@ -96,13 +110,24 @@ public class SearchService {
 
         // 2 + 3. 所有來源同時搜尋，並合併重複網址
         List<String> warnings = new ArrayList<>();
-        List<SearchResult> merged = searchAllProviders(searchedQuery, warnings);
+        List<SearchResult> merged = searchAllProviders(searchedQuery, language, warnings);
 
         // 4 + 5. 計分、排序
         List<SearchResult> results = scoreAndFilter(merged, ctx, scorer);
         results.sort(rankingOrder());
 
-        return new SearchResponse(results, warnings, searchedQuery, usedScorerId);
+        return new SearchResponse(results, warnings, searchedQuery, usedScorerId, profile.id(), language.code());
+    }
+
+    /** 使用者指定的 → 身份設定的 → 全站預設 */
+    private String chooseScorer(String requested, Profile profile) {
+        if (requested != null && scorers.containsKey(requested)) {
+            return requested;
+        }
+        if (!profile.scorer().isBlank() && scorers.containsKey(profile.scorer())) {
+            return profile.scorer();
+        }
+        return defaultScorerId;
     }
 
     // ===== 1. 組查詢字串 =====
@@ -124,7 +149,7 @@ public class SearchService {
      * 所有啟用的來源同時搜尋。
      * 單一來源失敗只會加一則警告；全部失敗才丟出例外。
      */
-    private List<SearchResult> searchAllProviders(String searchedQuery, List<String> warnings) {
+    private List<SearchResult> searchAllProviders(String searchedQuery, Language language, List<String> warnings) {
         List<SearchProvider> enabled = providers.stream().filter(SearchProvider::isEnabled).toList();
         if (enabled.isEmpty()) {
             throw new IllegalStateException("沒有可用的搜尋來源：請設定 SERPAPI_KEY、BRAVE_API_KEY 或 TAVILY_API_KEY（見 .env.example）");
@@ -132,7 +157,7 @@ public class SearchService {
 
         List<CompletableFuture<List<SearchResult>>> tasks = new ArrayList<>();
         for (SearchProvider provider : enabled) {
-            tasks.add(CompletableFuture.supplyAsync(() -> searchOne(provider, searchedQuery)));
+            tasks.add(CompletableFuture.supplyAsync(() -> searchOne(provider, searchedQuery, language)));
         }
 
         Map<String, SearchResult> byUrl = new LinkedHashMap<>();
@@ -152,9 +177,9 @@ public class SearchService {
         return new ArrayList<>(byUrl.values());
     }
 
-    private static List<SearchResult> searchOne(SearchProvider provider, String query) {
+    private static List<SearchResult> searchOne(SearchProvider provider, String query, Language language) {
         try {
-            return provider.search(query);
+            return provider.search(query, language);
         } catch (Exception e) {
             throw new RuntimeException(provider.name() + "：" + e.getMessage(), e);
         }

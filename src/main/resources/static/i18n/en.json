@@ -1,0 +1,38 @@
+{
+  "pageTitle": "Goo狗 Search",
+  "languageLabel": "Language",
+  "searchPlaceholder": "Search for anything about dogs…",
+  "searchButton": "Search",
+  "profilesLabel": "Search as",
+  "notTranslated": " (not translated yet)",
+  "scorerLabel": "Scoring formula",
+  "defaultTag": " (default)",
+  "profileScorerTag": " (this profile's default)",
+  "defaultName": "default",
+  "searching": "Searching as “{profile}” with “{scorer}”… (reading the pages, please wait)",
+  "found": "Results for “{q}”: {count}",
+  "notFound": "No results for “{q}”",
+  "actualQuery": " (searched for: {query})",
+  "partialFailure": " (some sources failed: {warnings})",
+  "searchFailed": "Search failed: {message}",
+  "resultSources": "sources",
+  "resultRank": "original rank",
+  "scorers": {
+    "my": {
+      "name": "Goo狗 formula",
+      "description": "Keyword density + query match + related links, weighted by the selected profile's keywords"
+    },
+    "default": {
+      "name": "Simple scoring",
+      "description": "+3 for each query word in the title, +1 in the snippet (fast, ignores the profile)"
+    },
+    "Weight": {
+      "name": "Weights only",
+      "description": "Only the profile's keyword weights (keyword density)"
+    },
+    "Empty": {
+      "name": "No scoring",
+      "description": "Keep the search engine's original order"
+    }
+  }
+}

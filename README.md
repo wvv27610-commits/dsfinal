@@ -17,6 +17,7 @@
 7. [新增其他搜尋來源](#7-新增其他搜尋來源)
 8. [上傳到 GitHub（GitHub Desktop）](#8-上傳到-githubgithub-desktop)
 9. [常見問題](#9-常見問題)
+10. [多語言與身份](#10-多語言與身份)
 
 ---
 
@@ -262,3 +263,82 @@ public class MySearchProvider implements SearchProvider {
 
 **Q：網頁打不開**
 確認程式有啟動成功（看到 `Started DsfinalApplication`），網址是 <http://localhost:8080>。
+
+---
+
+## 10. 多語言與身份
+
+網頁右上角可以切換**語言**（目前有繁體中文、English）。切換後會一起換掉：
+
+- 網頁上的文字
+- 身份的名稱、說明，以及**搜尋時附加的字**（英文不會再加上中文的「狗」）
+- 計分用的關鍵字：中文關鍵字 + 該語言的關鍵字一起算（網頁常常中英混寫）
+- 送給 Google / Brave 的語言參數（英文版會拿英文結果，但地區仍是台灣）
+
+語言會記在網址 `?lang=en`，也會記在瀏覽器裡，下次打開還是同一個語言。
+
+### 相關檔案
+
+| 檔案 | 內容 |
+|---|---|
+| `src/main/resources/profiles.json` | 所有身份（中文），**新增身份改這裡** |
+| `src/main/resources/profiles.en.json` | 各身份的英文名稱、搜尋附加字、英文關鍵字 |
+| `src/main/resources/languages.json` | 支援哪些語言、送給搜尋服務的語言參數 |
+| `src/main/resources/static/i18n/zh-TW.json`、`en.json` | 網頁上的文字、計分算法的英文名稱 |
+
+### 新增一個身份
+
+1. 在 `profiles.json` 的最後加一筆（記得前一筆後面要有逗號）：
+
+   ```json
+   {
+     "id": "grooming",
+     "name": "美容洗澡",
+     "description": "狗狗洗澡、剪毛、美容店資訊",
+     "queryPrefix": "",
+     "querySuffix": "狗 美容",
+     "keywords": { "洗澡": 3, "剪毛": 3, "美容師": 2, "團購": -2 },
+     "stopwords": ["熱狗", "犬儒", "狗屁", "走狗"]
+   }
+   ```
+
+2. 在 `profiles.en.json` 加同一個 id 的英文版（只寫要翻譯的欄位）：
+
+   ```json
+   "grooming": {
+     "name": "Grooming",
+     "description": "Bathing, haircuts and grooming salons",
+     "querySuffix": "dog grooming",
+     "keywords": { "bath": 3, "haircut": 3, "groomer": 2 }
+   }
+   ```
+
+   沒寫英文版也能用，英文介面會在按鈕上標「not translated yet」，並沿用中文的關鍵字和附加字。
+
+### 每個身份用不同的計分公式
+
+在身份裡加一行 `"scorer": "算法id"`（例如 `"scorer": "Weight"`），切換到這個身份時，計分算法選單會自動換成它，選單上標「（此身份預設）」。
+不寫就用 `application.properties` 的 `search.scorer`。使用者手動選的算法還是優先。目前「飼料選購」有設定 `"scorer": "my"` 當範例。
+
+### 英文關鍵字的比對規則
+
+- 不分大小寫
+- 要是**完整的單字**才算：`cat` 不會在 category 裡被算到，`dog` 不會在 hotdog 裡被算到
+- 字尾可以多一個 s 或 es：`vaccine` 也會算到 vaccines。但 puppy → puppies、allergy → allergies 這種變化要另外列
+- 要排除的片語寫在 `stopwords`，例如 `"hot dog"`
+
+### 新增一種語言（例如日文）
+
+1. `languages.json` 加一筆：`{"code": "ja", "label": "日本語", "googleHl": "ja", "googleGl": "tw", "braveLang": "jp", "braveCountry": "tw"}`
+2. 新增 `profiles.ja.json`（格式和 `profiles.en.json` 一樣）
+3. 複製 `static/i18n/en.json` 成 `ja.json` 並翻譯
+
+不用改任何 Java 程式。
+
+### 測試
+
+```bash
+./mvnw test
+```
+
+會檢查關鍵字比對規則，以及每個身份都有英文翻譯、英文的搜尋附加字裡沒有中文。

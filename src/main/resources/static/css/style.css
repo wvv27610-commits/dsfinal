@@ -123,3 +123,28 @@ button:hover { filter: brightness(1.08); }
 .scorer-picker select:hover,
 .scorer-picker select:focus { border-color: var(--accent); outline: none; }
 .scorer-desc { flex-basis: 100%; }
+
+/* ===== 語言切換 ===== */
+.lang-picker {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  font-size: .85rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.lang-picker select {
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.lang-picker select:hover,
+.lang-picker select:focus { border-color: var(--accent); outline: none; }
+main { position: relative; }
+body:not(.has-results) .lang-picker { position: absolute; top: 16px; right: 16px; margin: 0; }
+.profile-chip .untranslated { opacity: .7; font-size: .8em; }

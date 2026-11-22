@@ -2,6 +2,7 @@
 const MAX_TITLE_LENGTH = 100;
 const MAX_URL_LENGTH = 120;
 const MAX_SNIPPET_LENGTH = 200;
+const LANG_STORAGE_KEY = 'goodog.lang';
 
 // ===== 頁面元素 =====
 const form = document.getElementById('search-form');
@@ -12,14 +13,23 @@ const profilesEl = document.getElementById('profiles');
 const profileDescEl = document.getElementById('profile-desc');
 const scorerSelect = document.getElementById('scorer');
 const scorerDescEl = document.getElementById('scorer-desc');
+const langSelect = document.getElementById('lang');
 
 // ===== 狀態 =====
-// 身份清單由後端 /api/profiles 提供（內容在 profiles.json），這裡不用寫死
+const params = new URLSearchParams(location.search);
+// 語言清單由後端 /api/languages 提供（內容在 languages.json）
+let languages = [];
+let defaultLang = 'zh-TW';
+let currentLang = params.get('lang');
+// 介面文字：目前語言的字典，缺的字用預設語言補（內容在 static/i18n/<語言>.json）
+let messages = {};
+let fallbackMessages = {};
+// 身份清單由後端 /api/profiles 提供（內容在 profiles.json 和 profiles.<語言>.json），這裡不用寫死
 let profiles = [];
-let currentProfileId = new URLSearchParams(location.search).get('profile');
+let currentProfileId = params.get('profile');
 // 計分算法清單由後端 /api/scorers 提供（所有 @Component 的 ResultScorer），預設的排第一個
 let scorers = [];
-let currentScorerId = new URLSearchParams(location.search).get('scorer');
+let currentScorerId = params.get('scorer');
 
 // ===== 小工具 =====
 function escapeHtml(value) {
@@ -33,6 +43,12 @@ function truncateText(value, maxLength) {
   return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 }
 
+/** 取得介面文字，{name} 會換成 vars.name；目前語言沒有就用預設語言，再沒有就顯示 key */
+function t(key, vars = {}) {
+  const template = messages[key] ?? fallbackMessages[key] ?? key;
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? '');
+}
+
 function currentProfile() {
   return profiles.find(p => p.id === currentProfileId);
 }
@@ -41,24 +57,117 @@ function currentScorer() {
   return scorers.find(s => s.id === currentScorerId);
 }
 
-/** 把目前的關鍵字和身份寫進網址，重新整理後還能保留 */
+/** 計分算法的名稱和說明：i18n 檔裡有翻譯就用翻譯，沒有就用後端（Java）寫的 */
+function scorerText(scorer) {
+  const translated = (messages.scorers || {})[scorer.id] || {};
+  return {
+    name: translated.name || scorer.name,
+    description: translated.description || scorer.description
+  };
+}
+
+/** 把目前的關鍵字、身份、算法、語言寫進網址，重新整理後還能保留 */
 function updateUrl() {
-  const params = new URLSearchParams();
+  const next = new URLSearchParams();
   const q = input.value.trim();
-  if (q) params.set('q', q);
-  if (currentProfileId) params.set('profile', currentProfileId);
-  if (currentScorerId) params.set('scorer', currentScorerId);
-  history.replaceState(null, '', '?' + params.toString());
+  if (q) next.set('q', q);
+  if (currentProfileId) next.set('profile', currentProfileId);
+  if (currentScorerId) next.set('scorer', currentScorerId);
+  if (currentLang) next.set('lang', currentLang);
+  history.replaceState(null, '', '?' + next.toString());
+}
+
+// ===== 語言切換 =====
+async function loadLanguages() {
+  try {
+    const res = await fetch('/api/languages');
+    const data = await res.json();
+    languages = data.languages;
+    defaultLang = data.default;
+  } catch {
+    languages = [];
+  }
+  currentLang = pickLanguage();
+  renderLanguages();
+}
+
+/** 網址指定的 → 上次選的 → 瀏覽器語言 → 預設語言 */
+function pickLanguage() {
+  let saved = null;
+  try { saved = localStorage.getItem(LANG_STORAGE_KEY); } catch { /* 無痕模式等情況讀不到 */ }
+  const candidates = [currentLang, saved, ...(navigator.languages || [navigator.language])];
+  for (const code of candidates) {
+    const match = matchLanguage(code);
+    if (match) return match;
+  }
+  return defaultLang;
+}
+
+/** 'en-US' → 'en'；'zh-Hant-TW'、'zh' → 'zh-TW'（有的話） */
+function matchLanguage(code) {
+  if (!code) return null;
+  const wanted = code.toLowerCase();
+  const exact = languages.find(l => l.code.toLowerCase() === wanted);
+  if (exact) return exact.code;
+  const primary = wanted.split(/[-_]/)[0];
+  const samePrimary = languages.find(l => l.code.toLowerCase().split(/[-_]/)[0] === primary);
+  return samePrimary ? samePrimary.code : null;
+}
+
+function renderLanguages() {
+  langSelect.innerHTML = languages.map(l => `
+    <option value="${escapeHtml(l.code)}"${l.code === currentLang ? ' selected' : ''}>
+      ${escapeHtml(l.label)}
+    </option>`).join('');
+}
+
+async function loadMessages() {
+  fallbackMessages = await fetchJson(`/i18n/${defaultLang}.json`);
+  messages = currentLang === defaultLang ? fallbackMessages : await fetchJson(`/i18n/${currentLang}.json`);
+  applyStaticTexts();
+}
+
+async function fetchJson(url) {
+  try {
+    const res = await fetch(url);
+    return res.ok ? await res.json() : {};
+  } catch {
+    return {};
+  }
+}
+
+/** 把 HTML 裡標了 data-i18n 的文字換成目前語言 */
+function applyStaticTexts() {
+  document.documentElement.lang = currentLang === 'zh-TW' ? 'zh-Hant' : currentLang;
+  document.title = t('pageTitle');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+  });
+}
+
+async function onLanguageChange() {
+  currentLang = langSelect.value;
+  try { localStorage.setItem(LANG_STORAGE_KEY, currentLang); } catch { /* 存不了就算了 */ }
+  await Promise.all([loadMessages(), loadProfiles()]);
+  renderProfiles();   // 介面文字載完後再畫一次（「尚未翻譯」標記要用新語言）
+  renderScorers();
+  updateUrl();
+
+  // 已經有關鍵字的話，用新的語言重新搜尋（搜尋語言和身份關鍵字都會換）
+  const q = input.value.trim();
+  if (q) doSearch(q);
 }
 
 // ===== 身份切換 =====
 async function loadProfiles() {
-  try {
-    const res = await fetch('/api/profiles');
-    profiles = await res.json();
-  } catch {
-    profiles = [];
-  }
+  profiles = await fetchJson('/api/profiles?lang=' + encodeURIComponent(currentLang));
+  if (!Array.isArray(profiles)) profiles = [];
   // 網址沒指定或指定了不存在的身份 → 用第一個
   if (!currentProfile()) {
     currentProfileId = profiles.length ? profiles[0].id : null;
@@ -69,10 +178,11 @@ async function loadProfiles() {
 function renderProfiles() {
   profilesEl.innerHTML = profiles.map(p => {
     const active = p.id === currentProfileId;
+    const marker = p.translated ? '' : `<span class="untranslated">${escapeHtml(t('notTranslated'))}</span>`;
     return `
       <button type="button" class="profile-chip${active ? ' active' : ''}"
               role="radio" aria-checked="${active}" data-id="${escapeHtml(p.id)}">
-        ${escapeHtml(p.name)}
+        ${escapeHtml(p.name)}${marker}
       </button>`;
   }).join('');
 
@@ -85,7 +195,13 @@ function onProfileClick(event) {
   if (!button || button.dataset.id === currentProfileId) return;
 
   currentProfileId = button.dataset.id;
+  // 身份在 profiles.json 有指定計分算法的話，切換身份時一起換
+  const profileScorer = currentProfile()?.scorer;
+  if (profileScorer && scorers.some(s => s.id === profileScorer)) {
+    currentScorerId = profileScorer;
+  }
   renderProfiles();
+  renderScorers();
   updateUrl();
 
   // 已經有關鍵字的話，用新的身份重新搜尋
@@ -95,26 +211,34 @@ function onProfileClick(event) {
 
 // ===== 計分算法切換 =====
 async function loadScorers() {
-  try {
-    const res = await fetch('/api/scorers');
-    scorers = await res.json();
-  } catch {
-    scorers = [];
-  }
-  // 網址沒指定或指定了不存在的算法 → 用預設（第一個）
-  if (!currentScorer()) {
+  scorers = await fetchJson('/api/scorers');
+  if (!Array.isArray(scorers)) scorers = [];
+}
+
+/** 決定一開始用哪個算法：網址指定的 → 身份指定的 → 預設（第一個） */
+function pickInitialScorer() {
+  if (currentScorer()) return;
+  const profileScorer = currentProfile()?.scorer;
+  if (profileScorer && scorers.some(s => s.id === profileScorer)) {
+    currentScorerId = profileScorer;
+  } else {
     currentScorerId = scorers.length ? scorers[0].id : null;
   }
-  renderScorers();
 }
 
 function renderScorers() {
-  scorerSelect.innerHTML = scorers.map(s => `
-    <option value="${escapeHtml(s.id)}"${s.id === currentScorerId ? ' selected' : ''}>
-      ${escapeHtml(s.name)}${s.isDefault ? '（預設）' : ''}
-    </option>`).join('');
+  const profileScorer = currentProfile()?.scorer;
+  scorerSelect.innerHTML = scorers.map(s => {
+    let tag = '';
+    if (s.id === profileScorer) tag = t('profileScorerTag');
+    else if (s.isDefault) tag = t('defaultTag');
+    return `
+      <option value="${escapeHtml(s.id)}"${s.id === currentScorerId ? ' selected' : ''}>
+        ${escapeHtml(scorerText(s).name)}${escapeHtml(tag)}
+      </option>`;
+  }).join('');
   const scorer = currentScorer();
-  scorerDescEl.textContent = scorer ? scorer.description : '';
+  scorerDescEl.textContent = scorer ? scorerText(scorer).description : '';
 }
 
 function onScorerChange() {
@@ -132,7 +256,10 @@ async function doSearch(q) {
   document.body.classList.add('has-results');
   const profile = currentProfile();
   const scorer = currentScorer();
-  statusEl.textContent = `以「${profile ? profile.name : '預設'}」身份、「${scorer ? scorer.name : '預設'}」算法搜尋中…（需要讀取網頁，請稍候）`;
+  statusEl.textContent = t('searching', {
+    profile: profile ? profile.name : t('defaultName'),
+    scorer: scorer ? scorerText(scorer).name : t('defaultName')
+  });
   resultsEl.innerHTML = '';
 
   try {
@@ -140,7 +267,7 @@ async function doSearch(q) {
     statusEl.textContent = buildStatusText(q, data);
     resultsEl.innerHTML = data.results.map(renderResult).join('');
   } catch (err) {
-    statusEl.textContent = '搜尋失敗：' + err.message;
+    statusEl.textContent = t('searchFailed', { message: err.message });
   }
 }
 
@@ -148,6 +275,7 @@ async function fetchSearch(q) {
   let url = '/api/search?q=' + encodeURIComponent(q);
   if (currentProfileId) url += '&profile=' + encodeURIComponent(currentProfileId);
   if (currentScorerId) url += '&scorer=' + encodeURIComponent(currentScorerId);
+  if (currentLang) url += '&lang=' + encodeURIComponent(currentLang);
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -159,13 +287,13 @@ async function fetchSearch(q) {
 
 function buildStatusText(q, { results, warnings, searchedQuery }) {
   let text = results.length
-    ? `找到 ${results.length} 筆「${q}」的結果`
-    : `找不到「${q}」的相關結果`;
+    ? t('found', { count: results.length, q })
+    : t('notFound', { q });
   if (searchedQuery && searchedQuery !== q) {
-    text += `（實際搜尋：${searchedQuery}）`;
+    text += t('actualQuery', { query: searchedQuery });
   }
   if (warnings.length) {
-    text += `（部分來源失敗：${warnings.join('；')}）`;
+    text += t('partialFailure', { warnings: warnings.join('；') });
   }
   return text;
 }
@@ -179,7 +307,7 @@ function renderResult(r) {
       <div class="url" title="${escapeHtml(r.url)}">${escapeHtml(truncateText(r.url, MAX_URL_LENGTH))}</div>
       <p>${escapeHtml(truncateText(r.snippet, MAX_SNIPPET_LENGTH))}</p>
       <div class="score">
-        score: ${Number(r.score).toFixed(2)} · 來源: ${escapeHtml(r.sources.join(', '))} · 原名次: ${r.rank}
+        score: ${Number(r.score).toFixed(2)} · ${escapeHtml(t('resultSources'))}: ${escapeHtml(r.sources.join(', '))} · ${escapeHtml(t('resultRank'))}: ${r.rank}
       </div>
     </div>`;
 }
@@ -196,12 +324,20 @@ function onSubmit(event) {
 form.addEventListener('submit', onSubmit);
 profilesEl.addEventListener('click', onProfileClick);
 scorerSelect.addEventListener('change', onScorerChange);
+langSelect.addEventListener('change', onLanguageChange);
 
-// 先載入身份和計分算法，網址有 ?q=xxx 時再自動搜尋
-Promise.all([loadProfiles(), loadScorers()]).then(() => {
-  const initialQuery = new URLSearchParams(location.search).get('q');
+// 先決定語言，再載入介面文字、身份和計分算法；網址有 ?q=xxx 時再自動搜尋
+async function start() {
+  await loadLanguages();
+  await Promise.all([loadMessages(), loadProfiles(), loadScorers()]);
+  renderProfiles();
+  pickInitialScorer();
+  renderScorers();
+
+  const initialQuery = params.get('q');
   if (initialQuery) {
     input.value = initialQuery;
     doSearch(initialQuery);
   }
-});
+}
+start();
